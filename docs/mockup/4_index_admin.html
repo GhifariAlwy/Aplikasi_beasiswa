@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Administrator - Portal Beasiswa</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        .sidebar {
+            width: 260px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #0d6efd 0%, #0a58ca 100%);
+            color: white;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.85);
+            border-radius: 8px;
+            margin-bottom: 4px;
+            padding: 10px 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .main-content {
+            margin-left: 260px;
+            padding: 25px;
+        }
+        .card-stat {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+        }
+        .card-stat:hover {
+            transform: translateY(-3px);
+        }
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; min-height: auto; position: relative; }
+            .main-content { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar d-flex flex-column p-3">
+        <div class="d-flex align-items-center mb-3 px-2 pt-2">
+            <i class="bi bi-gear-wide-connected fs-2 me-2"></i>
+            <div>
+                <h6 class="fw-bold mb-0">ADMINISTRATOR</h6>
+                <small class="text-white-50">Portal Beasiswa</small>
+            </div>
+        </div>
+        <hr class="text-white-50 mt-0">
+        
+        <ul class="nav nav-pills flex-column mb-auto" id="adminMenu" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="menu-dashboard-tab" data-bs-toggle="pill" data-bs-target="#menu-dashboard" role="tab">
+                    <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="menu-hasil-tab" data-bs-toggle="pill" data-bs-target="#menu-hasil" role="tab">
+                    <i class="bi bi-file-earmark-spreadsheet me-2"></i>Hasil Seleksi
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="menu-master-tab" data-bs-toggle="pill" data-bs-target="#menu-master" role="tab">
+                    <i class="bi bi-database me-2"></i>Data Master
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="menu-setting-tab" data-bs-toggle="pill" data-bs-target="#menu-setting" role="tab">
+                    <i class="bi bi-sliders me-2"></i>Setting System
+                </a>
+            </li>
+        </ul>
+        
+        <hr class="text-white-50">
+        <div class="px-2">
+            <a href="#" class="nav-link text-white bg-danger bg-opacity-75">
+                <i class="bi bi-box-arrow-right me-2"></i>Logout
+            </a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom bg-white p-3 rounded shadow-sm">
+            <div>
+                <h4 class="fw-bold mb-0">Panel Administrator</h4>
+                <small class="text-muted">Manajemen Sistem Pendaftaran & Seleksi Beasiswa Pelatihan</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 fs-6">
+                    <i class="bi bi-person-fill-gear me-1"></i> Admin: Yosep Rohayadi
+                </span>
+            </div>
+        </div>
+
+        <div class="tab-content" id="adminMenuContent">
+            
+            <div class="tab-pane fade show active" id="menu-dashboard" role="tabpanel">
+                <h5 class="fw-bold mb-3"><i class="bi bi-bar-chart-line me-2 text-primary"></i>Ringkasan Statistik Pendaftaran</h5>
+                
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="card card-stat bg-primary text-white p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-white-50">Total Calon Peserta</small>
+                                    <h2 class="fw-bold mb-0">120</h2>
+                                </div>
+                                <i class="bi bi-people-fill fs-1 opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card card-stat bg-info text-white p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-white-50">Proses Administrasi</small>
+                                    <h2 class="fw-bold mb-0">15</h2>
+                                </div>
+                                <i class="bi bi-hourglass-split fs-1 opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card card-stat bg-success text-white p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-white-50">Lulus Administrasi</small>
+                                    <h2 class="fw-bold mb-0">95</h2>
+                                </div>
+                                <i class="bi bi-check-circle-fill fs-1 opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card card-stat bg-danger text-white p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-white-50">Tidak Lulus Administrasi</small>
+                                    <h2 class="fw-bold mb-0">10</h2>
+                                </div>
+                                <i class="bi bi-x-circle-fill fs-1 opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-4">
+                        <div class="card card-stat bg-warning text-dark p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-dark-50">Proses Wawancara</small>
+                                    <h2 class="fw-bold mb-0">20</h2>
+                                </div>
+                                <i class="bi bi-chat-dots-fill fs-1 opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card card-stat bg-success text-white p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-white-50">Lulus Wawancara</small>
+                                    <h2 class="fw-bold mb-0">70</h2>
+                                </div>
+                                <i class="bi bi-trophy-fill fs-1 opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card card-stat bg-secondary text-white p-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <small class="text-white-50">Tidak Lulus Wawancara</small>
+                                    <h2 class="fw-bold mb-0">5</h2>
+                                </div>
+                                <i class="bi bi-person-x-fill fs-1 opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="menu-hasil" role="tabpanel">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0"><i class="bi bi-trophy me-2 text-primary"></i>Hasil Kelulusan Peserta (Wawancara & Final)</h5>
+                        <button class="btn btn-success fw-bold"><i class="bi bi-file-earmark-excel me-1"></i> Export Excel</button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>No</th>
+                                        <th>NIK & Nama Peserta</th>
+                                        <th>Program Pelatihan</th>
+                                        <th>Status Administrasi</th>
+                                        <th>Nilai Wawancara</th>
+                                        <th>Status Wawancara</th>
+                                        <th>Status Final</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>1</td>
+                                        <td>
+                                            <strong>Yosep Rohayadi</strong><br>
+                                            <small class="text-muted">NIK: 3201123456780001</small>
+                                        </td>
+                                        <td>Pelatihan Web Developer Specialist</td>
+                                        <td><span class="badge bg-success">Lolos</span></td>
+                                        <td><strong>87.70</strong></td>
+                                        <td><span class="badge bg-success">Lulus Wawancara</span></td>
+                                        <td><span class="badge bg-success"><i class="bi bi-award me-1"></i>DITERIMA</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td>2</td>
+                                        <td>
+                                            <strong>Siti Nurhaliza</strong><br>
+                                            <small class="text-muted">NIK: 3201987654320002</small>
+                                        </td>
+                                        <td>Pelatihan Data Analyst & SQL</td>
+                                        <td><span class="badge bg-success">Lolos</span></td>
+                                        <td><strong>85.50</strong></td>
+                                        <td><span class="badge bg-success">Lulus Wawancara</span></td>
+                                        <td><span class="badge bg-success"><i class="bi bi-award me-1"></i>DITERIMA</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="menu-master" role="tabpanel">
+                <ul class="nav nav-tabs mb-3" id="masterSubTab" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active fw-bold" id="beasiswa-tab" data-bs-toggle="tab" data-bs-target="#master-beasiswa">CRUD Beasiswa Pelatihan</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link fw-bold" id="syarat-tab" data-bs-toggle="tab" data-bs-target="#master-syarat">CRUD Persyaratan</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="masterSubTabContent">
+                    <div class="tab-pane fade show active" id="master-beasiswa">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold mb-0">Master Data Beasiswa Pelatihan</h6>
+                                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addBeasiswaModal"><i class="bi bi-plus-lg me-1"></i>Tambah Beasiswa</button>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nama Beasiswa Pelatihan</th>
+                                            <th>Kuota</th>
+                                            <th>Metode</th>
+                                            <th>Status</th>
+                                            <th class="text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Pelatihan Web Developer Specialist</strong></td>
+                                            <td>100 Peserta</td>
+                                            <td>Daring (Online)</td>
+                                            <td><span class="badge bg-success">Aktif</span></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></button>
+                                                <button class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="master-syarat">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold mb-0">Master Data Persyaratan Dokumen</h6>
+                                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addSyaratModal"><i class="bi bi-plus-lg me-1"></i>Tambah Persyaratan</button>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nama Dokumen</th>
+                                            <th>Format Allowed</th>
+                                            <th>Max Size</th>
+                                            <th>Mandatory</th>
+                                            <th class="text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>KTP (Kartu Tanda Penduduk)</td>
+                                            <td>PDF / JPG / PNG</td>
+                                            <td>2 MB</td>
+                                            <td><span class="badge bg-danger">Wajib</span></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></button>
+                                                <button class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="menu-setting" role="tabpanel">
+                <ul class="nav nav-tabs mb-3" id="settingSubTab" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active fw-bold" id="user-tab" data-bs-toggle="tab" data-bs-target="#setting-user">CRUD Users Internal</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link fw-bold" id="role-tab" data-bs-toggle="tab" data-bs-target="#setting-role">CRUD Role & Akses Menu</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link fw-bold" id="menu-manage-tab" data-bs-toggle="tab" data-bs-target="#setting-menu">CRUD Menu System</button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="settingSubTabContent">
+                    <div class="tab-pane fade show active" id="setting-user">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold mb-0">Manajemen Users Internal</h6>
+                                <button class="btn btn-primary btn-sm"><i class="bi bi-person-plus me-1"></i>Tambah User Internal</button>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nama User</th>
+                                            <th>Username / Email</th>
+                                            <th>Role System</th>
+                                            <th>Status</th>
+                                            <th class="text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Ahmad Rivaldi</td>
+                                            <td>ahmad@beasiswa.go.id</td>
+                                            <td><span class="badge bg-primary">Verifikator</span></td>
+                                            <td><span class="badge bg-success">Active</span></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></button>
+                                                <button class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="setting-role">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold mb-0">Manajemen Role & Hak Akses Menu</h6>
+                                <button class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Tambah Role</button>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nama Role</th>
+                                            <th>Akses Menu Terkait</th>
+                                            <th class="text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Verifikator</strong></td>
+                                            <td>Verifikasi Seleksi Administrasi</td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-info text-white me-1"><i class="bi bi-shield-lock me-1"></i>Setting Akses</button>
+                                                <button class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="setting-menu">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="fw-bold mb-0">Manajemen Struktur Menu System</h6>
+                                <button class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>Tambah Menu</button>
+                            </div>
+                            <div class="card-body p-0">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Nama Menu</th>
+                                            <th>URL / Route</th>
+                                            <th>Icon</th>
+                                            <th class="text-center">Aksi</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Proses Wawancara</td>
+                                            <td><code>/wawancara</code></td>
+                                            <td><i class="bi bi-chat-square-text"></i></td>
+                                            <td class="text-center">
+                                                <button class="btn btn-sm btn-warning"><i class="bi bi-pencil"></i></button>
+                                                <button class="btn btn-sm btn-danger"><i class="bi bi-trash"></i></button>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="modal fade" id="addBeasiswaModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">Tambah Program Beasiswa</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form>
+                        <div class="mb-3">
+                            <label class="form-label">Nama Beasiswa Pelatihan</label>
+                            <input type="text" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Kuota Peserta</label>
+                            <input type="number" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Metode Pelaksanaan</label>
+                            <select class="form-select">
+                                <option>Daring (Online)</option>
+                                <option>Hybrid</option>
+                                <option>Luring (Offline)</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn btn-primary w-100">Simpan Program Beasiswa</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

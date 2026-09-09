@@ -1,0 +1,17 @@
+# Ignore service folders (they are separate repos)
+service-rbac/
+service-master/
+service-transaksi/
+service-dokumen/
+api-gateway/
+frontend/
+
+# Ignore environment and secrets
+.env
+infra/.env
+infra/keys/
+*.pem
+
+# System files
+.DS_Store
+node_modules/

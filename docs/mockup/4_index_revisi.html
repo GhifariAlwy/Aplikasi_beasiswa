@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Calon Peserta - Portal Beasiswa</title>
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        .wizard-steps .nav-link {
+            color: #6c757d;
+            border-radius: 0;
+            border-bottom: 3px solid transparent;
+        }
+        .wizard-steps .nav-link.active {
+            color: #0d6efd;
+            background-color: transparent;
+            border-bottom: 3px solid #0d6efd;
+            font-weight: bold;
+        }
+        .card-disabled {
+            background-color: #f8f9fa;
+            opacity: 0.75;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- Navbar User -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">
+                <i class="bi bi-mortarboard-fill me-2"></i>BeasiswaApp
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarUser">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarUser">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item"><a class="nav-link active" href="#"><i class="bi bi-speedometer2 me-1"></i>Dashboard Saya</a></li>
+                </ul>
+                <div class="dropdown">
+                    <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-person-circle me-1"></i> Yosep Rohayadi
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#">Profil Saya</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="#">Keluar (Logout)</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+
+        <!-- INFORMASI ATURAN PENDAFTARAN (1 BEASISWA) -->
+        <div class="alert alert-info border-0 shadow-sm d-flex align-items-center mb-4" role="alert">
+            <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+            <div>
+                <strong>Ketentuan Pendaftaran:</strong> Setiap peserta hanya diperbolehkan mendaftar pada <strong>1 (satu) program pelatihan saja</strong>.
+            </div>
+        </div>
+
+        <div class="row g-4">
+            
+            <!-- MONITORING STATUS PENDAFTARAN (Hanya 1 Data Program yang Diikuti) -->
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3 fw-bold border-bottom d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-clock-history me-2 text-primary"></i>Status Pendaftaran Saya</span>
+                        <span class="badge bg-primary">1 Pendaftaran Aktif</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Kode Tiket</th>
+                                        <th>Program Pelatihan yang Diikuti</th>
+                                        <th>Tgl Daftar</th>
+                                        <th>Seleksi Administrasi</th>
+                                        <th>Status Wawancara</th>
+                                        <th>Status Final</th>
+                                        <th>Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="badge bg-light text-dark border font-monospace fs-6">REG-2026-090021</span></td>
+                                        <td>
+                                            <strong>Pelatihan Web Developer Specialist</strong><br>
+                                            <span class="badge bg-outline-primary text-primary border border-primary small">Metode: Daring</span>
+                                        </td>
+                                        <td>02 Sep 2026</td>
+                                        <td><span class="badge bg-warning text-dark"><i class="bi bi-pencil-square me-1"></i>Revisi Berkas</span></td>
+                                        <td>-</td>
+                                        <td>-</td>
+                                        <td>
+                                            <!-- Jika status revisi, peserta dapat perbaiki data -->
+                                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#wizardModal">
+                                                <i class="bi bi-pencil-square me-1"></i>Perbaiki Data
+                                            </button>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KATALOG PELATIHAN (Dengan Logika 1 Pendaftaran) -->
+            <div class="col-12">
+                <h5 class="fw-bold mb-3"><i class="bi bi-journal-bookmark me-2 text-primary"></i>Katalog Program Pelatihan</h5>
+                <div class="row g-3">
+                    
+                    <!-- Program 1: Pelatihan yang SEDANG Diikuti -->
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card border-primary shadow-sm h-100">
+                            <div class="card-body">
+                                <span class="badge bg-primary mb-2"><i class="bi bi-check-circle-fill me-1"></i>Program Pilihan Anda</span>
+                                <h6 class="card-title fw-bold">Pelatihan Web Developer Specialist</h6>
+                                <p class="card-text text-muted small">Mempelajari pengembangan aplikasi web modern berbasis Fullstack dari tingkat dasar hingga profesional.</p>
+                            </div>
+                            <div class="card-footer bg-transparent border-0 pb-3">
+                                <button class="btn btn-outline-primary w-100 btn-sm" data-bs-toggle="modal" data-bs-target="#wizardModal">
+                                    <i class="bi bi-eye me-1"></i>Lihat / Edit Form Pendaftaran
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Program 2: TERKUNCI (Tidak Bisa Mendaftar Lagi) -->
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card border-0 shadow-sm h-100 card-disabled">
+                            <div class="card-body">
+                                <span class="badge bg-secondary mb-2">Pendaftaran Aktif</span>
+                                <h6 class="card-title fw-bold text-muted">Pelatihan Data Analyst & SQL</h6>
+                                <p class="card-text text-muted small">Pelajari analisis data, visualisasi, serta pengelolaan database relational untuk kebutuhan industri digital.</p>
+                            </div>
+                            <div class="card-footer bg-transparent border-0 pb-3">
+                                <button class="btn btn-secondary w-100 btn-sm" disabled title="Anda sudah mendaftar pada pelatihan lain">
+                                    <i class="bi bi-lock me-1"></i>Batas Pendaftaran Tercapai
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Program 3: TERKUNCI (Tidak Bisa Mendaftar Lagi) -->
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card border-0 shadow-sm h-100 card-disabled">
+                            <div class="card-body">
+                                <span class="badge bg-secondary mb-2">Pendaftaran Aktif</span>
+                                <h6 class="card-title fw-bold text-muted">UI/UX Design & Prototyping</h6>
+                                <p class="card-text text-muted small">Menguasai riset pengguna, pembuatan wireframe, hingga rancangan prototipe aplikasi yang efisien.</p>
+                            </div>
+                            <div class="card-footer bg-transparent border-0 pb-3">
+                                <button class="btn btn-secondary w-100 btn-sm" disabled title="Anda sudah mendaftar pada pelatihan lain">
+                                    <i class="bi bi-lock me-1"></i>Batas Pendaftaran Tercapai
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL WIZARD FORM (PENDAFTARAN / EDIT) -->
+    <div class="modal fade" id="wizardModal" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold">Formulir Pendaftaran - Pelatihan Web Developer Specialist</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    
+                    <!-- TAB WIZARD HEADERS -->
+                    <ul class="nav nav-tabs nav-justified wizard-steps bg-white" id="wizardTab" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active" id="step1-tab" data-bs-toggle="tab" data-bs-target="#step1">1. Data Diri & Kontak</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" id="step2-tab" data-bs-toggle="tab" data-bs-target="#step2">2. Pendidikan & Pekerjaan</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" id="step3-tab" data-bs-toggle="tab" data-bs-target="#step3">3. Unggah Dokumen</button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link" id="step4-tab" data-bs-toggle="tab" data-bs-target="#step4">4. Persetujuan & Submit</button>
+                        </li>
+                    </ul>
+
+                    <!-- TAB CONTENTS -->
+                    <div class="tab-content p-4" id="wizardTabContent">
+                        
+                        <!-- BAGIAN 1: DATA DIRI & KONTAK -->
+                        <div class="tab-pane fade show active" id="step1">
+                            <h6 class="fw-bold mb-3 text-primary">Bagian 1: Data Diri & Informasi Kontak</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">NIK (Nomor Induk Kependudukan)</label>
+                                    <input type="text" class="form-control" value="3201123456780001">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Nama Lengkap</label>
+                                    <input type="text" class="form-control" value="Yosep Rohayadi">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Tempat Lahir</label>
+                                    <input type="text" class="form-control" value="Bandung">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Tanggal Lahir</label>
+                                    <input type="date" class="form-control" value="1995-08-17">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Jenis Kelamin</label>
+                                    <select class="form-select">
+                                        <option selected>Laki-laki</option>
+                                        <option>Perempuan</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <label class="form-label">Alamat Domisili</label>
+                                    <textarea class="form-control" rows="2">Jl. Kebon Sirih No. 12</textarea>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Provinsi</label>
+                                    <select class="form-select"><option>Jawa Barat</option></select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Kabupaten/Kota</label>
+                                    <select class="form-select"><option>Kota Bandung</option></select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Kecamatan</label>
+                                    <select class="form-select"><option>Coblong</option></select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Kelurahan</label>
+                                    <select class="form-select"><option>Dago</option></select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">No. HP / WhatsApp</label>
+                                    <input type="text" class="form-control" value="081234567890">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Email Active</label>
+                                    <input type="email" class="form-control" value="yosep@example.com">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BAGIAN 2: LATAR BELAKANG PENDIDIKAN & PEKERJAAN -->
+                        <div class="tab-pane fade" id="step2">
+                            <h6 class="fw-bold mb-3 text-primary">Bagian 2: Latar Belakang Pendidikan & Pekerjaan</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Pendidikan Terakhir</label>
+                                    <select class="form-select">
+                                        <option>SMA/SMK Sederajat</option>
+                                        <option selected>D3 / S1 (Sarjana)</option>
+                                        <option>S2 / S3</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Nama Instansi / Sekolah / Universitas</label>
+                                    <input type="text" class="form-control" value="Universitas Komputer Indonesia">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Jurusan / Program Studi</label>
+                                    <input type="text" class="form-control" value="Teknik Informatika">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Pekerjaan Saat Ini</label>
+                                    <input type="text" class="form-control" value="Software Developer / Freelancer">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BAGIAN 3: UNGGAH DOKUMEN PENDUKUNG -->
+                        <div class="tab-pane fade" id="step3">
+                            <h6 class="fw-bold mb-3 text-primary">Bagian 3: Unggah Dokumen Pendukung (PDF/JPG/PNG, Max Size 2MB)</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Upload KTP <span class="text-danger">*</span></label>
+                                    <input type="file" class="form-control">
+                                    <div class="form-text">File tersimpan: <a href="#">ktp_yosep.jpg</a></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Upload Kartu Keluarga (KK) <span class="text-danger">*</span></label>
+                                    <input type="file" class="form-control">
+                                    <div class="form-text">File tersimpan: <a href="#">kk_yosep.pdf</a></div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Upload Ijazah Terakhir <span class="text-danger">*</span></label>
+                                    <input type="file" class="form-control">
+                                    <div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>Catatan Verifikator: File Ijazah buram/tidak terbaca, harap upload ulang.</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Upload Surat Rekomendasi / Keterangan <span class="text-danger">*</span></label>
+                                    <input type="file" class="form-control">
+                                    <div class="form-text">File tersimpan: <a href="#">surat_rekomendasi.pdf</a></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BAGIAN 4: LEMBAR PERSETUJUAN & CHECKLIST AKHIR -->
+                        <div class="tab-pane fade" id="step4">
+                            <h6 class="fw-bold mb-3 text-primary">Bagian 4: Ringkasan & Lembar Persetujuan</h6>
+                            <div class="card border mb-3 bg-light">
+                                <div class="card-body small">
+                                    <h6><strong>Ringkasan Data Pendaftaran:</strong></h6>
+                                    <p class="mb-1"><strong>Program Pelatihan:</strong> Pelatihan Web Developer Specialist</p>
+                                    <p class="mb-1"><strong>Nama / NIK:</strong> Yosep Rohayadi (3201123456780001)</p>
+                                    <p class="mb-0"><strong>Pendidikan:</strong> D3/S1 - Teknik Informatika</p>
+                                </div>
+                            </div>
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" id="checkSah" required>
+                                <label class="form-check-label small" for="checkSah">
+                                    Saya menyatakan bahwa seluruh data dan dokumen yang saya unggah adalah benar dan sah. Saya memahami bahwa saya hanya mendaftar pada 1 program pelatihan ini.
+                                </label>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- FOOTER DRAFT & SUBMIT -->
+                <div class="modal-footer bg-light justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                    <div>
+                        <button type="button" class="btn btn-outline-primary me-2"><i class="bi bi-bookmark me-1"></i>Simpan Draft</button>
+                        <button type="button" class="btn btn-success"><i class="bi bi-send me-1"></i>Kirim Pendaftaran (Submit)</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5.3 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

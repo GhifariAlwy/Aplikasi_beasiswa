@@ -1,0 +1,2051 @@
+openapi: 3.0.3
+info:
+  title: API Pendaftaran Beasiswa Pelatihan
+  description: >
+    Spesifikasi seluruh endpoint pada §8 CLAUDE.md, dilihat dari sisi klien lewat
+    API Gateway (satu base path /api/* yang mem-proxy ke service RBAC, Master, Transaksi,
+    dan Dokumen). Semua endpoint memakai response envelope seragam kecuali dua
+    pengecualian file-biner yang ditandai eksplisit (lihat docs/ASUMSI.md [ASUMSI-15]).
+  version: "1.0.0"
+servers:
+  - url: https://api.beasiswa.example.id
+    description: API Gateway (production)
+  - url: http://localhost:8080
+    description: API Gateway (local dev)
+
+tags:
+  - name: Auth
+    description: Registrasi, login, verifikasi email, refresh token
+  - name: Beasiswa Publik
+    description: Endpoint publik tanpa token
+  - name: RBAC
+    description: Users, Roles, Menus, akses menu dinamis
+  - name: Master
+    description: CRUD data master beasiswa & persyaratan
+  - name: Pendaftaran
+    description: Wizard pendaftaran peserta
+  - name: Verifikasi
+    description: Seleksi administrasi oleh Verifikator
+  - name: Wawancara
+    description: Seleksi wawancara oleh Lembaga Seleksi
+  - name: Dashboard
+    description: Statistik & ekspor untuk Admin
+  - name: Dokumen
+    description: Upload, unduh (stream), dan hapus berkas
+  - name: Health
+    description: Health check tiap service (lihat ASUMSI-23)
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ============================================================
+  # PUBLIK (tanpa token)
+  # ============================================================
+  /api/auth/register:
+    post:
+      tags: [Auth]
+      summary: Registrasi akun calon peserta
+      description: >
+        Role dipaksa CALON_PESERTA di server, tidak bisa diubah dari request.
+        Tidak meminta password dari user — password sementara di-generate server dan
+        dikirim ke email bersama username (lihat ASUMSI-03).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Registrasi berhasil, kredensial dikirim ke email
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeRegisterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: NIK atau email sudah terdaftar
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/auth/verify-email:
+    get:
+      tags: [Auth]
+      summary: Verifikasi email dari tautan yang dikirim saat registrasi
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Email berhasil diverifikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeNull'
+        '400':
+          description: Token tidak valid, sudah dipakai, atau format salah
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          description: Token tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '410':
+          description: Token sudah kedaluwarsa
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login (dipakai bersama oleh halaman publik dan internal)
+      description: >
+        Endpoint tunggal untuk login publik maupun internal (§6 aturan #4 CLAUDE.md).
+        Field `channel` menentukan daftar role yang diizinkan lewat request ini —
+        lihat ASUMSI-25. Field "Masuk Sebagai" pada mockup login internal bersifat
+        kosmetik dan TIDAK dikirim ke server (ASUMSI-24); role sesungguhnya selalu
+        dibaca dari `users.role_id` di database.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: >
+            Login berhasil. Access token dikembalikan di body, refresh token dikirim
+            lewat cookie HttpOnly+Secure+SameSite=Strict (tidak muncul di body/JSON).
+          headers:
+            Set-Cookie:
+              description: refresh_token=<opaque>; HttpOnly; Secure; SameSite=Strict
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeLoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Email/username atau password salah
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '403':
+          description: Role user tidak diizinkan untuk channel ini (mis. CALON_PESERTA lewat login internal)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Perpanjang access token memakai refresh token dari cookie
+      description: >
+        Refresh token lama otomatis dibatalkan (rotasi) dan diganti cookie baru
+        (§6 aturan #1 CLAUDE.md).
+      security: []
+      parameters:
+        - name: Cookie
+          in: header
+          required: true
+          schema:
+            type: string
+          description: harus menyertakan cookie refresh_token
+      responses:
+        '200':
+          description: Access token baru diterbitkan
+          headers:
+            Set-Cookie:
+              description: refresh_token baru (rotasi)
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeRefreshResponse'
+        '401':
+          description: Refresh token tidak ada, tidak valid, atau sudah dicabut
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/beasiswa/aktif:
+    get:
+      tags: [Beasiswa Publik]
+      summary: Daftar program beasiswa aktif untuk landing page
+      description: >
+        Bisa mengembalikan array kosong bila tidak ada gelombang aktif
+        (lihat mockup 5_index_ditutup.html) — ini kondisi bisnis normal, bukan error.
+      security: []
+      responses:
+        '200':
+          description: Daftar beasiswa berstatus AKTIF dan belum lewat tanggal_tutup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeBeasiswaList'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================
+  # RBAC
+  # ============================================================
+  /api/users:
+    get:
+      tags: [RBAC]
+      summary: Daftar user internal (ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: search
+          in: query
+          schema: { type: string }
+          description: cari berdasarkan nama/username/email
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeUserList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [RBAC]
+      summary: Tambah user internal (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '201':
+          description: User dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: username/email sudah dipakai
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    put:
+      tags: [RBAC]
+      summary: Ubah user internal (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: User diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: username/email bentrok dengan user lain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags: [RBAC]
+      summary: Hapus user internal (ADMIN)
+      description: 'Status 200 dengan data null, bukan 204 — lihat ASUMSI-14.'
+      responses:
+        '200':
+          description: User dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeNull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/roles:
+    get:
+      tags: [RBAC]
+      summary: Daftar role (ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeRoleList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [RBAC]
+      summary: Tambah role (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleUpsertRequest'
+      responses:
+        '201':
+          description: Role dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeRole'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: kode role sudah ada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/roles/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    put:
+      tags: [RBAC]
+      summary: Ubah role (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleUpsertRequest'
+      responses:
+        '200':
+          description: Role diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeRole'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags: [RBAC]
+      summary: Hapus role (ADMIN)
+      responses:
+        '200':
+          description: Role dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeNull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: role masih dipakai oleh user aktif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/menus:
+    get:
+      tags: [RBAC]
+      summary: Daftar menu sistem (ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeMenuList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [RBAC]
+      summary: Tambah menu (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuUpsertRequest'
+      responses:
+        '201':
+          description: Menu dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeMenu'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/menus/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    put:
+      tags: [RBAC]
+      summary: Ubah menu (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuUpsertRequest'
+      responses:
+        '200':
+          description: Menu diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeMenu'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags: [RBAC]
+      summary: Hapus menu (ADMIN)
+      responses:
+        '200':
+          description: Menu dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeNull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/auth/me:
+    get:
+      tags: [RBAC]
+      summary: Profil user yang sedang login
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeMe'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/auth/my-menus:
+    get:
+      tags: [RBAC]
+      summary: Menu dinamis sesuai role user yang login
+      description: >
+        Dipakai frontend untuk merender sidebar (§9 CLAUDE.md — sidebar TIDAK BOLEH
+        hardcoded).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeMyMenus'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================
+  # MASTER
+  # ============================================================
+  /api/beasiswa:
+    get:
+      tags: [Master]
+      summary: Daftar semua beasiswa (ADMIN, termasuk non-aktif)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [AKTIF, NONAKTIF, DITUTUP]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeBeasiswaList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [Master]
+      summary: Tambah beasiswa (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BeasiswaUpsertRequest'
+      responses:
+        '201':
+          description: Beasiswa dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeBeasiswa'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/beasiswa/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    put:
+      tags: [Master]
+      summary: Ubah beasiswa (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BeasiswaUpsertRequest'
+      responses:
+        '200':
+          description: Beasiswa diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeBeasiswa'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags: [Master]
+      summary: Hapus beasiswa (ADMIN, soft delete — mengisi deleted_at)
+      responses:
+        '200':
+          description: Beasiswa dihapus (soft delete)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeNull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: masih ada pendaftaran aktif terkait beasiswa ini
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/persyaratan:
+    get:
+      tags: [Master]
+      summary: Daftar persyaratan dokumen (ADMIN)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: beasiswa_id
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopePersyaratanList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    post:
+      tags: [Master]
+      summary: Tambah persyaratan dokumen (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersyaratanUpsertRequest'
+      responses:
+        '201':
+          description: Persyaratan dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopePersyaratan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: nama_dokumen sudah ada untuk beasiswa ini
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/persyaratan/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    put:
+      tags: [Master]
+      summary: Ubah persyaratan dokumen (ADMIN)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersyaratanUpsertRequest'
+      responses:
+        '200':
+          description: Persyaratan diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopePersyaratan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags: [Master]
+      summary: Hapus persyaratan dokumen (ADMIN)
+      responses:
+        '200':
+          description: Persyaratan dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeNull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================
+  # TRANSAKSI — Pendaftaran
+  # ============================================================
+  /api/pendaftaran:
+    post:
+      tags: [Pendaftaran]
+      summary: Buat draft pendaftaran baru
+      description: >
+        Menegakkan aturan 1 pendaftaran aktif (§5 CLAUDE.md, lihat ERD ASUMSI-08).
+        Mengambil snapshot data beasiswa saat ini ke `beasiswa_snapshot`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PendaftaranCreateRequest'
+      responses:
+        '201':
+          description: Draft pendaftaran dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopePendaftaran'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Role bukan CALON_PESERTA
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          description: beasiswa_id tidak ditemukan/tidak aktif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '409':
+          description: User sudah punya pendaftaran aktif pada program lain
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/pendaftaran/saya:
+    get:
+      tags: [Pendaftaran]
+      summary: Riwayat/pendaftaran milik user yang sedang login
+      description: >
+        Kepemilikan dicek dari `X-User-Id` header Gateway, bukan parameter yang bisa
+        dimanipulasi klien (anti-IDOR, §6 aturan #8 CLAUDE.md).
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopePendaftaranDetailList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/pendaftaran/{id}/section/{n}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+      - name: n
+        in: path
+        required: true
+        schema:
+          type: integer
+          enum: [1, 2, 3]
+        description: >
+          1 = Data Diri & Kontak, 2 = Pendidikan & Pekerjaan,
+          3 = tautan dokumen yang sudah diunggah lewat POST /api/dokumen/upload
+          (lihat ASUMSI-17). Section 4 (Persetujuan) tidak punya endpoint sendiri,
+          digabung ke POST .../submit (ASUMSI-18).
+    put:
+      tags: [Pendaftaran]
+      summary: Simpan data satu section wizard
+      description: >
+        Hanya bisa dipanggil pemilik pendaftaran saat status DRAFT/REVISI
+        (§5 CLAUDE.md — selain itu 403, bukan sekadar tombol disembunyikan di UI).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/Section1Request'
+                - $ref: '#/components/schemas/Section2Request'
+                - $ref: '#/components/schemas/Section3Request'
+      responses:
+        '200':
+          description: Section tersimpan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopePendaftaran'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Bukan pemilik, atau status pendaftaran bukan DRAFT/REVISI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/pendaftaran/{id}/submit:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    post:
+      tags: [Pendaftaran]
+      summary: Kirim pendaftaran (submit final)
+      description: >
+        Transisi DRAFT/REVISI → DIAJUKAN. Memvalidasi seluruh section lengkap +
+        dokumen wajib terunggah + persetujuan dicentang (§5 CLAUDE.md). Menulis baris
+        ke audit_status.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitRequest'
+      responses:
+        '200':
+          description: Pendaftaran berhasil dikirim, status menjadi DIAJUKAN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopePendaftaran'
+        '400':
+          description: Ada section yang belum lengkap / dokumen wajib belum lengkap / persetujuan belum dicentang
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Bukan pemilik, atau status saat ini tidak boleh submit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================
+  # TRANSAKSI — Verifikasi
+  # ============================================================
+  /api/verifikasi/antrian:
+    get:
+      tags: [Verifikasi]
+      summary: Antrian pendaftaran yang perlu diverifikasi (VERIFIKATOR)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: search
+          in: query
+          schema: { type: string }
+          description: cari berdasarkan nama/NIK
+        - name: tipe
+          in: query
+          schema:
+            type: string
+            enum: [BARU_SUBMIT, HASIL_REVISI]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopePendaftaranDetailList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/verifikasi/{id}:
+    parameters:
+      - $ref: '#/components/parameters/PendaftaranIdParam'
+    get:
+      tags: [Verifikasi]
+      summary: Detail satu pendaftaran untuk ditinjau Verifikator
+      description: >
+        Menggabungkan data_diri, pendidikan, daftar dokumen (dengan info persyaratan),
+        dan status persetujuan — sesuai 4 tab pada mockup 2_index_verifikator.html.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopePendaftaranDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/verifikasi/{id}/keputusan:
+    parameters:
+      - $ref: '#/components/parameters/PendaftaranIdParam'
+    post:
+      tags: [Verifikasi]
+      summary: Kirim keputusan verifikasi seleksi administrasi (VERIFIKATOR)
+      description: >
+        Menulis satu baris `verifikasi` + baris `verifikasi_checklist` per dokumen,
+        lalu transisi status: DISETUJUI→LOLOS_ADMIN, DITOLAK→DITOLAK_ADMIN,
+        REVISI→REVISI (§5 CLAUDE.md). `catatan_umum` wajib diisi untuk DITOLAK/REVISI.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifikasiKeputusanRequest'
+      responses:
+        '200':
+          description: Keputusan tersimpan, status pendaftaran diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeVerifikasi'
+        '400':
+          description: catatan_umum kosong untuk keputusan DITOLAK/REVISI, atau checklist tidak lengkap
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: >
+            Bukan role VERIFIKATOR, atau status pendaftaran bukan DIAJUKAN, atau
+            mencoba DISETUJUI padahal ada checklist is_sesuai=false (§5 CLAUDE.md)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================
+  # TRANSAKSI — Wawancara
+  # ============================================================
+  /api/wawancara/antrian:
+    get:
+      tags: [Wawancara]
+      summary: Antrian pendaftaran siap wawancara (LEMBAGA_SELEKSI)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: status_wawancara
+          in: query
+          schema:
+            type: string
+            enum: [LULUS, TIDAK_LULUS, BELUM_DINILAI]
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopePendaftaranDetailList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/wawancara/{id}/penilaian:
+    parameters:
+      - $ref: '#/components/parameters/PendaftaranIdParam'
+    post:
+      tags: [Wawancara]
+      summary: Input/edit penilaian wawancara (LEMBAGA_SELEKSI)
+      description: >
+        `nilai_akhir` SELALU dihitung ulang di server dari 3 komponen input
+        (§4 CLAUDE.md: `komunikasi*0.3 + teknis*0.4 + komitmen*0.3`), nilai_akhir dari
+        klien (jika ada) diabaikan. Transisi LOLOS_ADMIN → LULUS_WAWANCARA/TIDAK_LULUS_WAWANCARA.
+        Bisa dipanggil ulang untuk kasus "Edit Nilai" pada mockup selama data belum final
+        dianggap terkunci oleh kebijakan operasional (lihat PROGRESS.md untuk keputusan susulan).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WawancaraPenilaianRequest'
+      responses:
+        '200':
+          description: Penilaian tersimpan, status pendaftaran diperbarui
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeWawancara'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Bukan role LEMBAGA_SELEKSI, atau status pendaftaran bukan LOLOS_ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================
+  # TRANSAKSI — Dashboard (Admin)
+  # ============================================================
+  /api/dashboard/statistik:
+    get:
+      tags: [Dashboard]
+      summary: Statistik ringkasan untuk dashboard Admin
+      description: >
+        Definisi counter sesuai §8 CLAUDE.md: Pendaftar (status ≠ DRAFT),
+        Dalam Proses Admin (DIAJUKAN+REVISI), Lulus Admin kumulatif
+        (LOLOS_ADMIN+LULUS_WAWANCARA+TIDAK_LULUS_WAWANCARA), Tidak Lulus Admin
+        (DITOLAK_ADMIN), Dalam Proses Wawancara (LOLOS_ADMIN), Lulus Wawancara
+        (LULUS_WAWANCARA), Tidak Lulus Wawancara (TIDAK_LULUS_WAWANCARA). Satu query
+        GROUP BY status.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeDashboardStatistik'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/hasil-seleksi/export:
+    get:
+      tags: [Dashboard]
+      summary: Ekspor hasil seleksi ke Excel (ADMIN)
+      description: >
+        Response BUKAN envelope JSON — mengembalikan file .xlsx langsung
+        (lihat ASUMSI-15). Error tetap pakai envelope JSON standar.
+      responses:
+        '200':
+          description: File Excel hasil seleksi
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================
+  # DOKUMEN
+  # ============================================================
+  /api/dokumen/upload:
+    post:
+      tags: [Dokumen]
+      summary: Upload satu berkas dokumen persyaratan
+      description: >
+        Urutan pemeriksaan wajib sesuai §6 aturan #12 CLAUDE.md: cek kepemilikan →
+        cek ukuran (maks 2MB) → cek magic bytes → (opsional) scan ClamAV → rename UUID
+        → simpan metadata+SHA-256. Gagal di langkah manapun → file sementara dihapus.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DokumenUploadRequest'
+      responses:
+        '201':
+          description: Upload berhasil
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeDokumen'
+        '400':
+          description: File kosong, ekstensi tidak diizinkan, atau field wajib hilang
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: >
+            Bukan pemilik pendaftaran, status pendaftaran bukan DRAFT/REVISI, atau
+            persyaratan_id tidak berlaku untuk beasiswa pendaftaran ini
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '413':
+          description: Ukuran file melebihi 2MB
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '422':
+          description: Magic bytes tidak cocok dengan tipe file yang diklaim, atau terdeteksi malware oleh ClamAV
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /api/dokumen/{uuid}:
+    parameters:
+      - name: uuid
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [Dokumen]
+      summary: Unduh/stream berkas (dengan cek otorisasi)
+      description: >
+        BUKAN envelope JSON — stream file langsung (ASUMSI-15). File tidak pernah
+        punya URL statis (§6 aturan #13 CLAUDE.md); endpoint ini satu-satunya jalur akses.
+        Otorisasi: pemilik pendaftaran, atau VERIFIKATOR/LEMBAGA_SELEKSI/ADMIN yang
+        berkepentingan terhadap pendaftaran tersebut.
+      responses:
+        '200':
+          description: Isi berkas
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            application/pdf: { schema: { type: string, format: binary } }
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: User tidak berhak mengakses dokumen ini
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    delete:
+      tags: [Dokumen]
+      summary: Hapus berkas (hanya saat pendaftaran berstatus DRAFT/REVISI)
+      responses:
+        '200':
+          description: Berkas dihapus
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnvelopeNull'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: Bukan pemilik, atau status pendaftaran bukan DRAFT/REVISI
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Envelope'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  # ============================================================
+  # HEALTH (ASUMSI-23 — di luar 8 kelompok endpoint utama)
+  # ============================================================
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check service (RBAC/Master/Transaksi/Dokumen/Gateway)
+      security: []
+      responses:
+        '200':
+          description: Service sehat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: service-transaksi }
+                  timestamp: { type: string, format: date-time }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Access token JWT RS256 (~15 menit), dikirim di header
+        `Authorization: Bearer <token>`. Gateway meneruskan identitas terverifikasi ke
+        service internal lewat header X-User-Id/X-User-Role/X-Request-Id.
+
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    PendaftaranIdParam:
+      name: id
+      in: path
+      required: true
+      description: >
+        Merujuk ke pendaftaran.id, bukan id internal tabel verifikasi/wawancara
+        (lihat docs/ASUMSI.md ASUMSI-16).
+      schema:
+        type: integer
+        format: int64
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 10
+
+  responses:
+    BadRequest:
+      description: Validasi input gagal (Zod)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+          example:
+            success: false
+            data: null
+            message: "Validasi gagal"
+            errors:
+              - field: "nik"
+                message: "NIK harus 16 digit"
+    Unauthorized:
+      description: Token tidak ada, tidak valid, atau kedaluwarsa
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+          example:
+            success: false
+            data: null
+            message: "Autentikasi diperlukan"
+            errors: []
+    Forbidden:
+      description: Role tidak diizinkan, atau bukan pemilik resource (anti-IDOR)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+          example:
+            success: false
+            data: null
+            message: "Anda tidak memiliki akses ke resource ini"
+            errors: []
+    NotFound:
+      description: Resource tidak ditemukan
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+          example:
+            success: false
+            data: null
+            message: "Data tidak ditemukan"
+            errors: []
+    TooManyRequests:
+      description: Rate limit terlampaui (§6 aturan #10 CLAUDE.md)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+          example:
+            success: false
+            data: null
+            message: "Terlalu banyak permintaan, coba lagi nanti"
+            errors: []
+    ServerError:
+      description: Kesalahan server tak terduga (tidak membocorkan stack trace/versi framework, §6 aturan #16)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Envelope'
+          example:
+            success: false
+            data: null
+            message: "Terjadi kesalahan pada server"
+            errors: []
+
+  schemas:
+    # ---------- Envelope dasar ----------
+    ErrorItem:
+      type: object
+      properties:
+        field: { type: string, nullable: true }
+        message: { type: string }
+      required: [message]
+
+    Envelope:
+      type: object
+      required: [success, data, message, errors]
+      properties:
+        success: { type: boolean }
+        data:
+          nullable: true
+        message: { type: string }
+        errors:
+          type: array
+          items: { $ref: '#/components/schemas/ErrorItem' }
+
+    EnvelopeNull:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { nullable: true, example: null }
+
+    Pagination:
+      type: object
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+        total_pages: { type: integer }
+
+    # ---------- Auth ----------
+    RegisterRequest:
+      type: object
+      required: [nik, nama, email]
+      properties:
+        nik: { type: string, minLength: 16, maxLength: 16, example: "3201123456780001" }
+        nama: { type: string, example: "Yosep Rohayadi" }
+        email: { type: string, format: email, example: "yosep@example.com" }
+
+    RegisterResponseData:
+      type: object
+      properties:
+        user_id: { type: integer, format: int64 }
+        email: { type: string, format: email }
+
+    EnvelopeRegisterResponse:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/RegisterResponseData' }
+
+    LoginRequest:
+      type: object
+      required: [identifier, password, channel]
+      properties:
+        identifier:
+          type: string
+          description: email atau username
+          example: "yosep@example.com"
+        password: { type: string, format: password }
+        channel:
+          type: string
+          enum: [PUBLIK, INTERNAL]
+          description: Lihat ASUMSI-25 — bukan role yang diklaim, hanya konteks halaman asal.
+        remember_me:
+          type: boolean
+          default: false
+          description: Lihat ASUMSI-04
+
+    LoginResponseData:
+      type: object
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, example: Bearer }
+        expires_in: { type: integer, example: 900, description: detik }
+        user:
+          type: object
+          properties:
+            id: { type: integer, format: int64 }
+            nama: { type: string }
+            username: { type: string }
+            email: { type: string }
+            role: { type: string, example: VERIFIKATOR }
+
+    EnvelopeLoginResponse:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/LoginResponseData' }
+
+    RefreshResponseData:
+      type: object
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, example: Bearer }
+        expires_in: { type: integer, example: 900 }
+
+    EnvelopeRefreshResponse:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/RefreshResponseData' }
+
+    MeResponseData:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        nik: { type: string, nullable: true }
+        nama: { type: string }
+        username: { type: string }
+        email: { type: string }
+        role: { type: string }
+        is_email_verified: { type: boolean }
+
+    EnvelopeMe:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/MeResponseData' }
+
+    MenuTreeItem:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        nama: { type: string }
+        path: { type: string }
+        icon: { type: string, nullable: true }
+        urutan: { type: integer }
+        can_view: { type: boolean }
+        can_create: { type: boolean }
+        can_update: { type: boolean }
+        can_delete: { type: boolean }
+        children:
+          type: array
+          items: { $ref: '#/components/schemas/MenuTreeItem' }
+
+    EnvelopeMyMenus:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/MenuTreeItem' }
+
+    # ---------- RBAC ----------
+    Role:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        kode: { type: string, enum: [CALON_PESERTA, VERIFIKATOR, LEMBAGA_SELEKSI, ADMIN] }
+        nama: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    RoleUpsertRequest:
+      type: object
+      required: [kode, nama]
+      properties:
+        kode: { type: string }
+        nama: { type: string }
+
+    EnvelopeRole:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Role' }
+
+    EnvelopeRoleList:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/Role' }
+                pagination: { $ref: '#/components/schemas/Pagination' }
+
+    User:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        nik: { type: string, nullable: true }
+        nama: { type: string }
+        username: { type: string }
+        email: { type: string }
+        role: { $ref: '#/components/schemas/Role' }
+        is_email_verified: { type: boolean }
+        is_active: { type: boolean }
+        last_login_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    UserCreateRequest:
+      type: object
+      required: [nama, username, email, role_id]
+      properties:
+        nama: { type: string }
+        username: { type: string }
+        email: { type: string, format: email }
+        role_id: { type: integer, format: int64 }
+        password: { type: string, format: password, description: "diisi Admin untuk user internal, minimal 8 karakter" }
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        nama: { type: string }
+        username: { type: string }
+        email: { type: string, format: email }
+        role_id: { type: integer, format: int64 }
+        is_active: { type: boolean }
+        password: { type: string, format: password, description: "opsional, isi untuk reset password" }
+
+    EnvelopeUser:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/User' }
+
+    EnvelopeUserList:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/User' }
+                pagination: { $ref: '#/components/schemas/Pagination' }
+
+    Menu:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        parent_id: { type: integer, format: int64, nullable: true }
+        nama: { type: string }
+        path: { type: string }
+        icon: { type: string, nullable: true }
+        urutan: { type: integer }
+        is_active: { type: boolean }
+
+    MenuUpsertRequest:
+      type: object
+      required: [nama, path]
+      properties:
+        parent_id: { type: integer, format: int64, nullable: true }
+        nama: { type: string }
+        path: { type: string }
+        icon: { type: string }
+        urutan: { type: integer }
+        is_active: { type: boolean }
+
+    EnvelopeMenu:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Menu' }
+
+    EnvelopeMenuList:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/Menu' }
+                pagination: { $ref: '#/components/schemas/Pagination' }
+
+    # ---------- Master ----------
+    Beasiswa:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        kode: { type: string }
+        nama: { type: string }
+        deskripsi: { type: string, nullable: true }
+        persyaratan_khusus: { type: string, nullable: true }
+        kuota: { type: integer }
+        metode: { type: string, enum: [DARING, HYBRID, LURING] }
+        tanggal_buka: { type: string, format: date }
+        tanggal_tutup: { type: string, format: date }
+        status: { type: string, enum: [AKTIF, NONAKTIF, DITUTUP] }
+
+    BeasiswaUpsertRequest:
+      type: object
+      required: [nama, kuota, metode, tanggal_buka, tanggal_tutup]
+      properties:
+        nama: { type: string }
+        deskripsi: { type: string }
+        persyaratan_khusus: { type: string }
+        kuota: { type: integer, minimum: 1 }
+        metode: { type: string, enum: [DARING, HYBRID, LURING] }
+        tanggal_buka: { type: string, format: date }
+        tanggal_tutup: { type: string, format: date }
+        status: { type: string, enum: [AKTIF, NONAKTIF, DITUTUP] }
+
+    EnvelopeBeasiswa:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Beasiswa' }
+
+    EnvelopeBeasiswaList:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/Beasiswa' }
+                pagination: { $ref: '#/components/schemas/Pagination' }
+
+    Persyaratan:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        beasiswa_id: { type: integer, format: int64 }
+        nama_dokumen: { type: string }
+        format_allowed: { type: string, example: "pdf,jpg,png" }
+        max_size_kb: { type: integer }
+        is_mandatory: { type: boolean }
+        urutan: { type: integer }
+
+    PersyaratanUpsertRequest:
+      type: object
+      required: [beasiswa_id, nama_dokumen, format_allowed]
+      properties:
+        beasiswa_id: { type: integer, format: int64 }
+        nama_dokumen: { type: string }
+        format_allowed: { type: string }
+        max_size_kb: { type: integer, default: 2048 }
+        is_mandatory: { type: boolean, default: true }
+        urutan: { type: integer }
+
+    EnvelopePersyaratan:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Persyaratan' }
+
+    EnvelopePersyaratanList:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/Persyaratan' }
+                pagination: { $ref: '#/components/schemas/Pagination' }
+
+    # ---------- Transaksi: Pendaftaran ----------
+    PendaftaranStatus:
+      type: string
+      enum: [DRAFT, DIAJUKAN, LOLOS_ADMIN, DITOLAK_ADMIN, REVISI, LULUS_WAWANCARA, TIDAK_LULUS_WAWANCARA]
+
+    PendaftaranCreateRequest:
+      type: object
+      required: [beasiswa_id]
+      properties:
+        beasiswa_id: { type: integer, format: int64 }
+
+    Pendaftaran:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        kode_pendaftaran: { type: string, example: "REG-2026-0001" }
+        beasiswa_id: { type: integer, format: int64 }
+        beasiswa_nama: { type: string }
+        status: { $ref: '#/components/schemas/PendaftaranStatus' }
+        section_terakhir: { type: integer, minimum: 1, maximum: 3 }
+        jumlah_revisi: { type: integer }
+        submitted_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    EnvelopePendaftaran:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Pendaftaran' }
+
+    DataDiri:
+      type: object
+      required: [nik, nama_lengkap, tempat_lahir, tanggal_lahir, jenis_kelamin, alamat_domisili, provinsi, kabupaten_kota, kecamatan, kelurahan, no_hp, email]
+      properties:
+        nik: { type: string, minLength: 16, maxLength: 16 }
+        nama_lengkap: { type: string }
+        tempat_lahir: { type: string }
+        tanggal_lahir: { type: string, format: date }
+        jenis_kelamin: { type: string, enum: [L, P] }
+        alamat_domisili: { type: string }
+        provinsi: { type: string }
+        kabupaten_kota: { type: string }
+        kecamatan: { type: string }
+        kelurahan: { type: string }
+        no_hp: { type: string }
+        email: { type: string, format: email }
+
+    Section1Request:
+      allOf:
+        - $ref: '#/components/schemas/DataDiri'
+
+    Pendidikan:
+      type: object
+      required: [pendidikan_terakhir, nama_instansi, jurusan, pekerjaan]
+      properties:
+        pendidikan_terakhir: { type: string, enum: [SMA_SMK, D3_D4, S1, S2_S3] }
+        nama_instansi: { type: string }
+        jurusan: { type: string }
+        pekerjaan: { type: string }
+
+    Section2Request:
+      allOf:
+        - $ref: '#/components/schemas/Pendidikan'
+
+    Section3DokumenItem:
+      type: object
+      required: [persyaratan_id, dokumen_uuid]
+      properties:
+        persyaratan_id: { type: integer, format: int64 }
+        dokumen_uuid: { type: string, format: uuid }
+
+    Section3Request:
+      type: object
+      required: [dokumen]
+      properties:
+        dokumen:
+          type: array
+          items: { $ref: '#/components/schemas/Section3DokumenItem' }
+      description: Lihat ASUMSI-17 — file mentah sudah diunggah lewat POST /api/dokumen/upload sebelumnya.
+
+    SubmitRequest:
+      type: object
+      required: [setuju_keabsahan, setuju_ketentuan]
+      properties:
+        setuju_keabsahan: { type: boolean, enum: [true], description: "Lihat ASUMSI-12 — satu checkbox mockup mengisi dua field ini" }
+        setuju_ketentuan: { type: boolean, enum: [true] }
+
+    PendaftaranDokumenItem:
+      type: object
+      properties:
+        persyaratan_id: { type: integer, format: int64 }
+        nama_dokumen: { type: string }
+        dokumen_uuid: { type: string, format: uuid, nullable: true }
+        is_sesuai: { type: boolean, nullable: true, description: "hasil checklist verifikator siklus terakhir, null jika belum diverifikasi" }
+        catatan_perbaikan: { type: string, nullable: true }
+
+    PendaftaranDetail:
+      allOf:
+        - $ref: '#/components/schemas/Pendaftaran'
+        - type: object
+          properties:
+            data_diri: { $ref: '#/components/schemas/DataDiri' }
+            pendidikan: { $ref: '#/components/schemas/Pendidikan' }
+            dokumen:
+              type: array
+              items: { $ref: '#/components/schemas/PendaftaranDokumenItem' }
+            setuju_keabsahan: { type: boolean }
+            setuju_ketentuan: { type: boolean }
+            disetujui_at: { type: string, format: date-time, nullable: true }
+            wawancara:
+              nullable: true
+              allOf:
+                - $ref: '#/components/schemas/Wawancara'
+
+    EnvelopePendaftaranDetail:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/PendaftaranDetail' }
+
+    EnvelopePendaftaranDetailList:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                items:
+                  type: array
+                  items: { $ref: '#/components/schemas/PendaftaranDetail' }
+                pagination: { $ref: '#/components/schemas/Pagination' }
+
+    # ---------- Transaksi: Verifikasi ----------
+    VerifikasiChecklistInput:
+      type: object
+      required: [persyaratan_id, is_sesuai]
+      properties:
+        persyaratan_id: { type: integer, format: int64 }
+        is_sesuai: { type: boolean }
+        catatan_perbaikan: { type: string, nullable: true }
+
+    VerifikasiKeputusanRequest:
+      type: object
+      required: [checklist, keputusan]
+      properties:
+        checklist:
+          type: array
+          items: { $ref: '#/components/schemas/VerifikasiChecklistInput' }
+        keputusan: { type: string, enum: [DISETUJUI, DITOLAK, REVISI] }
+        catatan_umum: { type: string, nullable: true, description: "wajib diisi jika keputusan DITOLAK atau REVISI" }
+
+    Verifikasi:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        pendaftaran_id: { type: integer, format: int64 }
+        verifikator_id: { type: integer, format: int64 }
+        keputusan: { type: string, enum: [DISETUJUI, DITOLAK, REVISI] }
+        catatan_umum: { type: string, nullable: true }
+        checklist:
+          type: array
+          items: { $ref: '#/components/schemas/VerifikasiChecklistInput' }
+        created_at: { type: string, format: date-time }
+
+    EnvelopeVerifikasi:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Verifikasi' }
+
+    # ---------- Transaksi: Wawancara ----------
+    WawancaraPenilaianRequest:
+      type: object
+      required: [nilai_komunikasi, nilai_teknis, nilai_komitmen, status, catatan_evaluasi]
+      properties:
+        nilai_komunikasi: { type: number, format: float, minimum: 0, maximum: 100 }
+        nilai_teknis: { type: number, format: float, minimum: 0, maximum: 100 }
+        nilai_komitmen: { type: number, format: float, minimum: 0, maximum: 100 }
+        status: { type: string, enum: [LULUS, TIDAK_LULUS] }
+        catatan_evaluasi: { type: string }
+
+    Wawancara:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        pendaftaran_id: { type: integer, format: int64 }
+        penilai_id: { type: integer, format: int64 }
+        nilai_komunikasi: { type: number, format: float }
+        nilai_teknis: { type: number, format: float }
+        nilai_komitmen: { type: number, format: float }
+        nilai_akhir: { type: number, format: float, description: "dihitung server, diabaikan jika dikirim klien" }
+        status: { type: string, enum: [LULUS, TIDAK_LULUS] }
+        catatan_evaluasi: { type: string }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    EnvelopeWawancara:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Wawancara' }
+
+    # ---------- Dashboard ----------
+    DashboardStatistik:
+      type: object
+      properties:
+        pendaftar: { type: integer }
+        dalam_proses_admin: { type: integer }
+        lulus_admin: { type: integer }
+        tidak_lulus_admin: { type: integer }
+        dalam_proses_wawancara: { type: integer }
+        lulus_wawancara: { type: integer }
+        tidak_lulus_wawancara: { type: integer }
+
+    EnvelopeDashboardStatistik:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/DashboardStatistik' }
+
+    # ---------- Dokumen ----------
+    DokumenUploadRequest:
+      type: object
+      required: [pendaftaran_id, persyaratan_id, file]
+      properties:
+        pendaftaran_id: { type: integer, format: int64 }
+        persyaratan_id: { type: integer, format: int64 }
+        file:
+          type: string
+          format: binary
+          description: "PDF/JPG/PNG, maks 2MB. Dicek magic bytes, bukan ekstensi (§6 aturan #12)."
+
+    Dokumen:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        kode_pendaftaran: { type: string }
+        persyaratan_id: { type: integer, format: int64 }
+        nama_file_asli: { type: string }
+        mime_terdeteksi: { type: string }
+        ukuran_byte: { type: integer }
+        sha256: { type: string }
+        status_scan: { type: string, enum: [PENDING, CLEAN, INFECTED, SKIPPED] }
+        created_at: { type: string, format: date-time }
+
+    EnvelopeDokumen:
+      allOf:
+        - $ref: '#/components/schemas/Envelope'
+        - type: object
+          properties:
+            data: { $ref: '#/components/schemas/Dokumen' }

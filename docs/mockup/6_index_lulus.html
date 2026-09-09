@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pengumuman Kelulusan - Portal Beasiswa</title>
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        .hero-lulus {
+            background: linear-gradient(135deg, #198754 0%, #0f5132 100%);
+            color: white;
+            border-radius: 12px;
+        }
+        .badge-status {
+            font-size: 0.9rem;
+            padding: 8px 14px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+
+    <!-- Navbar User -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top shadow-sm">
+        <div class="container">
+            <a class="navbar-brand fw-bold" href="#">
+                <i class="bi bi-mortarboard-fill me-2"></i>BeasiswaApp
+            </a>
+            <div class="dropdown ms-auto">
+                <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-person-circle me-1"></i> Yosep Rohayadi
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item text-danger" href="#">Keluar (Logout)</a></li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+
+        <!-- BANNER HERO UCAPAN SELAMAT -->
+        <div class="hero-lulus p-4 p-md-5 mb-4 shadow-sm position-relative overflow-hidden">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <span class="badge bg-warning text-dark fw-bold mb-2">
+                        <i class="bi bi-trophy-fill me-1"></i> PENGUMUMAN SELEKSI FINAL
+                    </span>
+                    <h2 class="display-6 fw-bold mb-2">Selamat, Yosep Rohayadi!</h2>
+                    <p class="lead mb-3">Anda dinyatakan <strong>LULUS SELEKSI</strong> dan diterima sebagai penerima beasiswa program <strong>Pelatihan Web Developer Specialist</strong>.</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="#" class="btn btn-warning fw-bold text-dark"><i class="bi bi-file-earmark-pdf-fill me-1"></i> Unduh Surat Kelulusan (PDF)</a>
+                        <button class="btn btn-outline-light" data-bs-toggle="modal" data-bs-target="#daftarUlangModal"><i class="bi bi-check-circle-fill me-1"></i> Konfirmasi / Daftar Ulang</button>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center d-none d-md-block">
+                    <i class="bi bi-award-fill opacity-75" style="font-size: 8rem;"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABEL MONITORING STATUS DETAIL -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white py-3 fw-bold border-bottom">
+                <i class="bi bi-clipboard-data-fill me-2 text-success"></i>Rincian Status Seleksi Peserta
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Program Pelatihan</th>
+                                <th>Seleksi Administrasi</th>
+                                <th>Seleksi Wawancara</th>
+                                <th>Status Akhir (Kelulusan)</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>
+                                    <strong>Pelatihan Web Developer Specialist</strong><br>
+                                    <small class="text-muted">Kode Pendaftaran: REG-2026-8801</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success badge-status"><i class="bi bi-check-circle-fill me-1"></i> Lolos</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success badge-status"><i class="bi bi-check-circle-fill me-1"></i> Lulus Wawancara</span>
+                                </td>
+                                <td>
+                                    <span class="badge bg-success badge-status"><i class="bi bi-trophy-fill me-1"></i> DITERIMA (LULUS)</span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#wizardReadonlyModal">
+                                        <i class="bi bi-eye me-1"></i> Lihat Data Pendaftaran
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- RINCIAN LANGKAH SELANJUTNYA (PETUNJUK DAFTAR ULANG) -->
+        <div class="row g-3">
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                        <h6 class="fw-bold text-success mb-3"><i class="bi bi-info-circle-fill me-2"></i>Langkah Selanjutnya</h6>
+                        <ol class="small text-secondary ps-3 mb-0">
+                            <li class="mb-2">Unduh Surat Keterangan Kelulusan resmi berbentuk PDF melalui tombol di atas.</li>
+                            <li class="mb-2">Lakukan konfirmasi kehadiran/daftar ulang sebelum <strong>10 September 2026</strong>.</li>
+                            <li class="mb-2">Bergabung ke dalam grup koordinasi Telegram/WhatsApp peserta pelatihan.</li>
+                            <li>Mengikuti Orientasi Pembukaan Pelatihan secara daring sesuai jadwal terlampir pada surat.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-0 shadow-sm h-100 bg-white">
+                    <div class="card-body">
+                        <h6 class="fw-bold text-primary mb-3"><i class="bi bi-calendar-check-fill me-2"></i>Jadwal Kegiatan Pelatihan</h6>
+                        <ul class="list-unstyled small mb-0">
+                            <li class="mb-2"><strong>Konfirmasi Daftar Ulang:</strong> 02 - 10 September 2026</li>
+                            <li class="mb-2"><strong>Orientasi Peserta:</strong> 15 September 2026 (09.00 WIB)</li>
+                            <li><strong>Pelaksanaan Kelas Pertama:</strong> 20 September 2026</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- MODAL KONFIRMASI DAFTAR ULANG -->
+    <div class="modal fade" id="daftarUlangModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold"><i class="bi bi-check2-square me-2"></i>Konfirmasi Kehadiran / Daftar Ulang</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted">Silakan konfirmasi kesediaan Anda untuk mengikuti program **Pelatihan Web Developer Specialist** hingga selesai.</p>
+                    <form>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">Status Kesediaan</label>
+                            <select class="form-select">
+                                <option value="bersedia" selected>Ya, Saya Bersedia Mengikuti Pelatihan</option>
+                                <option value="mengundurkan">Saya Mengundurkan Diri</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">Catatan Tambahan (Opsional)</label>
+                            <textarea class="form-control" rows="2" placeholder="Catatan untuk panitia..."></textarea>
+                        </div>
+                        <button type="button" class="btn btn-success w-100" data-bs-dismiss="modal">Kirim Konfirmasi</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DATA PENDAFTARAN (READ-ONLY) -->
+    <div class="modal fade" id="wizardReadonlyModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title fw-bold">Arsip Data Pendaftaran (Lulus)</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <ul class="list-group list-group-flush small">
+                        <li class="list-group-item"><strong>Nama Lengkap:</strong> Yosep Rohayadi</li>
+                        <li class="list-group-item"><strong>NIK:</strong> 3201123456780001</li>
+                        <li class="list-group-item"><strong>Program:</strong> Pelatihan Web Developer Specialist</li>
+                        <li class="list-group-item"><strong>Seleksi Administrasi:</strong> Disetujui / Lolos</li>
+                        <li class="list-group-item"><strong>Seleksi Wawancara:</strong> Lulus Wawancara</li>
+                        <li class="list-group-item"><strong>Hasil Akhir:</strong> <span class="badge bg-success">LULUS / DITERIMA</span></li>
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5.3 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

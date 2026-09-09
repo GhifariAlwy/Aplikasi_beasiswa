@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Verifikator - Seleksi Administrasi Beasiswa</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+        }
+        /* Sidebar Styling */
+        .sidebar {
+            width: 260px;
+            min-height: 100vh;
+            background: linear-gradient(180deg, #0d6efd 0%, #0a58ca 100%);
+            color: white;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 100;
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.85);
+            border-radius: 8px;
+            margin-bottom: 4px;
+            padding: 12px 15px;
+            font-weight: 500;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .main-content {
+            margin-left: 260px;
+            padding: 25px;
+        }
+        .extra-small {
+            font-size: 0.75rem;
+        }
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; min-height: auto; position: relative; }
+            .main-content { margin-left: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar d-flex flex-column p-3">
+        <div class="d-flex align-items-center mb-4 px-2 pt-2">
+            <i class="bi bi-shield-check fs-2 me-2"></i>
+            <div>
+                <h6 class="fw-bold mb-0">PORTAL VERIFIKATOR</h6>
+                <small class="text-white-50">Beasiswa App</small>
+            </div>
+        </div>
+        <hr class="text-white-50 mt-0">
+        
+        <ul class="nav nav-pills flex-column mb-auto">
+            <li class="nav-item">
+                <a href="#" class="nav-link active">
+                    <i class="bi bi-file-earmark-check me-2"></i>Verifikasi Seleksi Administrasi
+                </a>
+            </li>
+        </ul>
+        
+        <hr class="text-white-50">
+        <div class="px-2">
+            <a href="#" class="nav-link text-white bg-danger bg-opacity-75">
+                <i class="bi bi-box-arrow-right me-2"></i>Logout
+            </a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        
+        <div class="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom bg-white p-3 rounded shadow-sm">
+            <div>
+                <h4 class="fw-bold mb-0">Verifikasi Seleksi Administrasi</h4>
+                <small class="text-muted">Kelola dan selesaikan verifikasi berkas calon peserta beasiswa</small>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-primary-subtle text-primary border border-primary px-3 py-2 fs-6">
+                    <i class="bi bi-person-circle me-1"></i> Verifikator: Ahmad Rivaldi
+                </span>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm bg-primary text-white">
+                    <div class="card-body">
+                        <h6 class="card-title text-white-50">Perlu Verifikasi</h6>
+                        <h3 class="fw-bold mb-0">12</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm bg-warning text-dark">
+                    <div class="card-body">
+                        <h6 class="card-title text-dark-50">Status Revisi</h6>
+                        <h3 class="fw-bold mb-0">5</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm bg-success text-white">
+                    <div class="card-body">
+                        <h6 class="card-title text-white-50">Disetujui (Lolos)</h6>
+                        <h3 class="fw-bold mb-0">48</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm bg-danger text-white">
+                    <div class="card-body">
+                        <h6 class="card-title text-white-50">Ditolak</h6>
+                        <h3 class="fw-bold mb-0">3</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white py-3 fw-bold border-bottom d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-list-task me-2 text-primary"></i>Daftar Pendaftar (Baru Submit & Revisi)</span>
+                <input type="text" class="form-control form-control-sm w-auto" placeholder="Cari Nama / NIK...">
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>No</th>
+                                <th>NIK & Nama Peserta</th>
+                                <th>Program Pelatihan</th>
+                                <th>Tanggal Submit</th>
+                                <th>Tipe Pengajuan</th>
+                                <th>Status Saat Ini</th>
+                                <th class="text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>
+                                    <strong>Yosep Rohayadi</strong><br>
+                                    <small class="text-muted">NIK: 3201123456780001</small>
+                                </td>
+                                <td>Pelatihan Web Developer Specialist</td>
+                                <td>02 Sep 2026</td>
+                                <td><span class="badge bg-info text-dark">Baru Submit</span></td>
+                                <td><span class="badge bg-secondary">Menunggu Verifikasi</span></td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#verifikasiModal">
+                                        <i class="bi bi-pencil-square me-1"></i>Verifikasi Data
+                                    </button>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>
+                                    <strong>Siti Nurhaliza</strong><br>
+                                    <small class="text-muted">NIK: 3201987654320002</small>
+                                </td>
+                                <td>Pelatihan Data Analyst & SQL</td>
+                                <td>01 Sep 2026</td>
+                                <td><span class="badge bg-warning text-dark">Hasil Revisi</span></td>
+                                <td><span class="badge bg-warning text-dark">Revisi Terkirim</span></td>
+                                <td class="text-center">
+                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#verifikasiModal">
+                                        <i class="bi bi-pencil-square me-1"></i>Verifikasi Data
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="modal fade" id="verifikasiModal" data-bs-backdrop="static" tabindex="-1">
+        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg">
+                
+                <div class="modal-header bg-primary text-white py-3">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-white text-primary rounded-circle p-2 me-3 d-flex align-items-center justify-content-center" style="width: 45px; height: 45px;">
+                            <i class="bi bi-person-bounding-box fs-4"></i>
+                        </div>
+                        <div>
+                            <h5 class="modal-title fw-bold mb-0">Verifikasi Berkas Seleksi Administrasi</h5>
+                            <small class="text-white-50">Kode Pendaftaran: REG-2026-8801 | Tipe: Baru Submit</small>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                
+                <div class="modal-body p-0 bg-light">
+                    
+                    <ul class="nav nav-pills nav-justified bg-white border-bottom p-2 gap-2" id="verifikasiTab" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link active fw-semibold small" id="verif-step1-tab" data-bs-toggle="tab" data-bs-target="#verif-step1">
+                                <i class="bi bi-person-vcard me-1"></i> 1. Data Diri & Kontak
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link fw-semibold small" id="verif-step2-tab" data-bs-toggle="tab" data-bs-target="#verif-step2">
+                                <i class="bi bi-mortarboard me-1"></i> 2. Pendidikan & Kerja
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link fw-semibold small" id="verif-step3-tab" data-bs-toggle="tab" data-bs-target="#verif-step3">
+                                <i class="bi bi-file-earmark-check me-1"></i> 3. Upload Dokumen
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link fw-semibold small" id="verif-step4-tab" data-bs-toggle="tab" data-bs-target="#verif-step4">
+                                <i class="bi bi-patch-check me-1"></i> 4. Persetujuan & Keputusan
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content p-4" id="verifikasiTabContent">
+                        
+                        <div class="tab-pane fade show active" id="verif-step1">
+                            <div class="card border-0 shadow-sm mb-3">
+                                <div class="card-header bg-white fw-bold text-primary border-bottom">
+                                    <i class="bi bi-card-heading me-2"></i>Informasi Data Diri & Domisili Peserta
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <label class="text-muted extra-small d-block mb-1">NIK (Nomor Induk Kependudukan)</label>
+                                            <div class="fw-bold fs-6 text-dark bg-light p-2 rounded border">3201123456780001</div>
+                                        </div>
+                                        <div class="col-md-5">
+                                            <label class="text-muted extra-small d-block mb-1">Nama Lengkap</label>
+                                            <div class="fw-bold fs-6 text-dark bg-light p-2 rounded border">Yosep Rohayadi</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="text-muted extra-small d-block mb-1">Jenis Kelamin</label>
+                                            <div class="fw-bold fs-6 text-dark bg-light p-2 rounded border">Laki-laki</div>
+                                        </div>
+
+                                        <div class="col-md-4">
+                                            <label class="text-muted extra-small d-block mb-1">Tempat, Tanggal Lahir</label>
+                                            <div class="fw-semibold text-dark bg-light p-2 rounded border">Bandung, 17 Agustus 1995</div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="text-muted extra-small d-block mb-1">No. HP / WhatsApp</label>
+                                            <div class="fw-semibold text-dark bg-light p-2 rounded border">
+                                                <i class="bi bi-whatsapp text-success me-1"></i> 081234567890
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="text-muted extra-small d-block mb-1">Alamat Email</label>
+                                            <div class="fw-semibold text-dark bg-light p-2 rounded border">
+                                                <i class="bi bi-envelope me-1 text-primary"></i> yosep@example.com
+                                            </div>
+                                        </div>
+
+                                        <div class="col-12">
+                                            <label class="text-muted extra-small d-block mb-1">Alamat Domisili Lengkap</label>
+                                            <div class="fw-semibold text-dark bg-light p-2 rounded border">Jl. Kebon Sirih No. 12</div>
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <label class="text-muted extra-small d-block mb-1">Provinsi</label>
+                                            <div class="bg-light p-2 rounded border small">Jawa Barat</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="text-muted extra-small d-block mb-1">Kabupaten/Kota</label>
+                                            <div class="bg-light p-2 rounded border small">Kota Bandung</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="text-muted extra-small d-block mb-1">Kecamatan</label>
+                                            <div class="bg-light p-2 rounded border small">Coblong</div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="text-muted extra-small d-block mb-1">Kelurahan</label>
+                                            <div class="bg-light p-2 rounded border small">Dago</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="verif-step2">
+                            <div class="card border-0 shadow-sm mb-3">
+                                <div class="card-header bg-white fw-bold text-primary border-bottom">
+                                    <i class="bi bi-book me-2"></i>Riwayat Pendidikan & Pekerjaan
+                                </div>
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <label class="text-muted extra-small d-block mb-1">Pendidikan Terakhir</label>
+                                            <div class="fw-bold text-dark bg-light p-2 rounded border">D3 / S1 (Sarjana)</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="text-muted extra-small d-block mb-1">Nama Instansi / Sekolah / Universitas</label>
+                                            <div class="fw-bold text-dark bg-light p-2 rounded border">Universitas Komputer Indonesia</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="text-muted extra-small d-block mb-1">Jurusan / Program Studi</label>
+                                            <div class="fw-semibold text-dark bg-light p-2 rounded border">Teknik Informatika</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="text-muted extra-small d-block mb-1">Pekerjaan Saat Ini</label>
+                                            <div class="fw-semibold text-dark bg-light p-2 rounded border">Software Developer / Freelancer</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="verif-step3">
+                            <div class="card border-0 shadow-sm mb-3">
+                                <div class="card-header bg-white fw-bold text-primary border-bottom d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-file-earmark-arrow-up me-2"></i>Peninjauan Berkas Syarat (PDF/JPG/PNG Max 2MB)</span>
+                                    <span class="badge bg-info-subtle text-info border border-info small">4 Dokumen Diunggah</span>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle mb-0">
+                                            <thead class="table-light small">
+                                                <tr>
+                                                    <th style="width: 25%;">Persyaratan Dokumen</th>
+                                                    <th style="width: 20%;">Berkas Peserta</th>
+                                                    <th style="width: 25%;">Kesesuaian Data</th>
+                                                    <th>Catatan Perbaikan Verifikator</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr>
+                                                    <td>
+                                                        <strong>KTP (Kartu Tanda Penduduk)</strong><br>
+                                                        <small class="text-muted">Format: JPG (1.2 MB)</small>
+                                                    </td>
+                                                    <td>
+                                                        <a href="#" class="btn btn-sm btn-outline-primary w-100">
+                                                            <i class="bi bi-file-earmark-image me-1"></i>Pratinjau KTP
+                                                        </a>
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group w-100" role="group">
+                                                            <input type="radio" class="btn-check" name="check_ktp" id="ktp_valid" checked>
+                                                            <label class="btn btn-outline-success btn-sm" for="ktp_valid"><i class="bi bi-check-lg"></i> Sesuai</label>
+                                                            <input type="radio" class="btn-check" name="check_ktp" id="ktp_invalid">
+                                                            <label class="btn btn-outline-danger btn-sm" for="ktp_invalid"><i class="bi bi-x-lg"></i> Ditolak</label>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <input type="text" class="form-control form-control-sm" placeholder="Isi catatan jika tidak sesuai...">
+                                                    </td>
+                                                </tr>
+
+                                                <tr>
+                                                    <td>
+                                                        <strong>KK (Kartu Keluarga)</strong><br>
+                                                        <small class="text-muted">Format: PDF (1.8 MB)</small>
+                                                    </td>
+                                                    <td>
+                                                        <a href="#" class="btn btn-sm btn-outline-primary w-100">
+                                                            <i class="bi bi-file-earmark-pdf me-1"></i>Pratinjau KK
+                                                        </a>
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group w-100" role="group">
+                                                            <input type="radio" class="btn-check" name="check_kk" id="kk_valid" checked>
+                                                            <label class="btn btn-outline-success btn-sm" for="kk_valid"><i class="bi bi-check-lg"></i> Sesuai</label>
+                                                            <input type="radio" class="btn-check" name="check_kk" id="kk_invalid">
+                                                            <label class="btn btn-outline-danger btn-sm" for="kk_invalid"><i class="bi bi-x-lg"></i> Ditolak</label>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <input type="text" class="form-control form-control-sm" placeholder="Isi catatan jika tidak sesuai...">
+                                                    </td>
+                                                </tr>
+
+                                                <tr>
+                                                    <td>
+                                                        <strong>Ijazah Terakhir</strong><br>
+                                                        <small class="text-muted">Format: PDF (1.9 MB)</small>
+                                                    </td>
+                                                    <td>
+                                                        <a href="#" class="btn btn-sm btn-outline-primary w-100">
+                                                            <i class="bi bi-file-earmark-pdf me-1"></i>Pratinjau Ijazah
+                                                        </a>
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group w-100" role="group">
+                                                            <input type="radio" class="btn-check" name="check_ijazah" id="ijazah_valid">
+                                                            <label class="btn btn-outline-success btn-sm" for="ijazah_valid"><i class="bi bi-check-lg"></i> Sesuai</label>
+                                                            <input type="radio" class="btn-check" name="check_ijazah" id="ijazah_invalid" checked>
+                                                            <label class="btn btn-outline-danger btn-sm" for="ijazah_invalid"><i class="bi bi-x-lg"></i> Ditolak</label>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <input type="text" class="form-control form-control-sm border-danger text-danger" value="Scan dokumen buram, mohon di-upload ulang dengan jelas.">
+                                                    </td>
+                                                </tr>
+
+                                                <tr>
+                                                    <td>
+                                                        <strong>Surat Rekomendasi / Keterangan</strong><br>
+                                                        <small class="text-muted">Format: PDF (850 KB)</small>
+                                                    </td>
+                                                    <td>
+                                                        <a href="#" class="btn btn-sm btn-outline-primary w-100">
+                                                            <i class="bi bi-file-earmark-pdf me-1"></i>Pratinjau Surat
+                                                        </a>
+                                                    </td>
+                                                    <td>
+                                                        <div class="btn-group w-100" role="group">
+                                                            <input type="radio" class="btn-check" name="check_surat" id="surat_valid" checked>
+                                                            <label class="btn btn-outline-success btn-sm" for="surat_valid"><i class="bi bi-check-lg"></i> Sesuai</label>
+                                                            <input type="radio" class="btn-check" name="check_surat" id="surat_invalid">
+                                                            <label class="btn btn-outline-danger btn-sm" for="surat_invalid"><i class="bi bi-x-lg"></i> Ditolak</label>
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <input type="text" class="form-control form-control-sm" placeholder="Isi catatan jika tidak sesuai...">
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="tab-pane fade" id="verif-step4">
+                            
+                            <div class="card border-0 shadow-sm mb-3">
+                                <div class="card-header bg-white fw-bold text-primary border-bottom">
+                                    <i class="bi bi-shield-check me-2"></i>Checklist Akhir & Statement Peserta
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-success d-flex align-items-center mb-0" role="alert">
+                                        <i class="bi bi-check-circle-fill fs-4 me-3"></i>
+                                        <div>
+                                            <strong>Pernyataan Keabsahan Data Disetujui Peserta</strong>
+                                            <p class="mb-0 small">Peserta telah menyetujui pernyataan keabsahan dokumen dan ketentuan pendaftaran pada 02 September 2026 pukul 14:20 WIB.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="card border-primary shadow-sm">
+                                <div class="card-header bg-primary text-white fw-bold">
+                                    <i class="bi bi-gavel me-2"></i>Keputusan Akhir Verifikator
+                                </div>
+                                <div class="card-body bg-white">
+                                    <div class="row g-3">
+                                        <div class="col-md-5">
+                                            <label class="form-label fw-bold">Status Keputusan <span class="text-danger">*</span></label>
+                                            <select class="form-select form-select-lg border-primary" required>
+                                                <option value="" disabled>-- Pilih Status --</option>
+                                                <option value="disetujui">Disetujui (Lolos Seleksi Administrasi)</option>
+                                                <option value="revisi" selected>Revisi (Harus Perbaikan Berkas)</option>
+                                                <option value="ditolak">Ditolak (Gugur Administrasi)</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-7">
+                                            <label class="form-label fw-bold">Catatan Verifikator untuk Peserta <span class="text-danger">*</span></label>
+                                            <textarea class="form-control" rows="3" placeholder="Tuliskan alasan keputusan atau petunjuk perbaikan berkas secara jelas..." required>Berkas Ijazah Terakhir buram/tidak terbaca. Silakan lakukan upload ulang berkas Ijazah yang jelas sebelum batas waktu revisi ditutup.</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer bg-white border-top justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i>Tutup
+                    </button>
+                    <div>
+                        <button type="button" class="btn btn-success px-4 fw-bold">
+                            <i class="bi bi-send-check me-1"></i>Submit Keputusan Verifikasi
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
