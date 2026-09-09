@@ -99,3 +99,86 @@ cd ../service-dokumen && npm test && npx tsc --noEmit
 cd ../api-gateway && npx tsc --noEmit
 cd ../frontend && npm run build
 ```
+# 🎓 Aplikasi Pendaftaran Beasiswa Pelatihan
+
+Sistem pendaftaran beasiswa berbasis **Microservices** yang dirancang dengan standar keamanan tinggi, skalabilitas, dan pemisahan tanggung jawab yang ketat.
+
+## 📌 Deskripsi Proyek
+Aplikasi ini mengelola seluruh alur pendaftaran beasiswa, mulai dari registrasi calon peserta, verifikasi dokumen oleh admin/verifikator, hingga penilaian wawancara oleh lembaga seleksi. Sistem ini dibangun untuk memastikan integritas data, mencegah serangan umum (SQLi, XSS, IDOR), dan memberikan pengalaman pengguna yang mulus.
+
+## 🏗️ Arsitektur Sistem
+Aplikasi ini terdiri dari **6 layanan terpisah** yang berkomunikasi melalui API Gateway.
+
+### 🗺️ Peta Repositori
+Karena mengikuti standar microservices, setiap layanan memiliki repositori Git sendiri:
+
+| Komponen | Tanggung Jawab | Link Repositori |
+| :--- | :--- | :--- |
+| **Root (Repo ini)** | Orkestrasi, Infrastruktur, & Dokumentasi | `[Link Repo Root]` |
+| **Service RBAC** | Auth (JWT RS256), Manajemen User & Role | `[Link Repo RBAC]` |
+| **Service Master** | Manajemen Data Beasiswa & Persyaratan | `[Link Repo Master]` |
+| **Service Transaksi** | Alur Pendaftaran, Verifikasi & Wawancara | `[Link Repo Transaksi]` |
+| **Service Dokumen** | Penyimpanan File & Scan Antivirus (ClamAV) | `[Link Repo Dokumen]` |
+| **API Gateway** | Routing, Rate Limiting & SSL Termination | `[Link Repo Gateway]` |
+| **Frontend** | User Interface (React 18 + Bootstrap 5.3) | `[Link Repo Frontend]` |
+
+---
+
+## 🚀 Panduan Menjalankan Proyek (Quick Start)
+
+### 📋 Prasyarat
+- Docker & Docker Compose (Terbaru)
+- Git
+
+### 🛠️ Langkah Instalasi
+1. **Clone Root Repository & Services**
+```bash
+   # Clone repo utama
+   git clone [LINK_REPO_ROOT] beasiswa
+   cd beasiswa
+
+   # Clone semua service ke folder masing-masing
+   git clone [LINK_REPO_RBAC] service-rbac
+   git clone [LINK_REPO_MASTER] service-master
+   git clone [LINK_REPO_TRANSAKSI] service-transaksi
+   git clone [LINK_REPO_DOKUMEN] service-dokumen
+   git clone [LINK_REPO_GATEWAY] api-gateway
+   git clone [LINK_REPO_FRONTEND] frontend
+```
+
+2. **Konfigurasi Environment**
+```bash
+   cd infra
+   cp .env.example .env
+   # Generate kunci JWT RS256 untuk autentikasi
+   ./scripts/generate-keys.sh
+```
+
+3. **Jalankan Seluruh Stack**
+```bash
+   docker compose up -d --build
+```
+
+4. **Isi Data Demo (Seed)**
+```bash
+   ./infra/seed-demo.sh
+```
+
+### 🌐 Akses Aplikasi
+- **Frontend**: [http://localhost:5173](http://localhost:5173)
+- **API Gateway**: [http://localhost:8080](http://localhost:8080)
+- **MailHog (Cek Email Aktivasi)**: [http://localhost:8025](http://localhost:8025)
+
+---
+
+## 🔐 Fitur Keamanan Unggulan (Security Highlights)
+Aplikasi ini mengimplementasikan aturan keamanan ketat sesuai permintaan dokumen:
+
+- **Autentikasi RS256**: Menggunakan *Asymmetric Key*. Hanya `service-rbac` yang memegang *private key* untuk menerbitkan token; Gateway hanya memegang *public key* untuk verifikasi.
+- **Isolasi Jaringan (Private VPC)**: Service backend dan database tidak memiliki port terbuka ke host. Akses hanya bisa dilakukan melalui API Gateway.
+- **Anti-Malware**: Setiap file yang diunggah dipindai secara *real-time* menggunakan **ClamAV** sebelum disimpan ke storage.
+- **Validasi Magic Bytes**: Verifikasi tipe file berdasarkan *binary signature* (bukan ekstensi), mencegah serangan *file spoofing*.
+- **Refresh Token Rotation**: Implementasi rotasi token dengan deteksi *reuse* untuk mencegah pembajakan sesi.
+- **Anti-IDOR**: Pengecekan kepemilikan data dilakukan langsung di level query database.
+
+## 📁 Struktur Folder Root
