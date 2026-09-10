@@ -107,19 +107,30 @@ services:
       retries: 10
       start_period: 20s
 
+  # ClamAV dengan database virus pada NAMED VOLUME (beasiswa-clamav-db). Volume diisi
+  # dari HOST lewat infra/scripts/update-clamav-db.sh (host punya egress, network internal
+  # tidak). freshclam dimatikan (CLAMAV_NO_FRESHCLAM) supaya container tidak crash-loop
+  # mencoba mengunduh. Update DB = jalankan ulang script, lalu `docker compose restart clamav`.
   clamav:
     image: clamav/clamav:latest
     container_name: beasiswa-clamav
     restart: unless-stopped
+    environment:
+      CLAMAV_NO_FRESHCLAM: "true"
+    volumes:
+      - clamav-db:/var/lib/clamav
     expose:
       - "3310"
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "clamscan", "--version"]
-      interval: 30s
+      # clamdcheck.sh menunggu clamd siap menerima INSTREAM; jauh lebih akurat
+      # daripada `clamscan --version` yang selalu sukses walau daemon belum naik.
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 15s
       timeout: 10s
-      retries: 3
+      retries: 12
+      start_period: 120s
 
 
   # ============================================================
@@ -129,10 +140,16 @@ services:
     image: mailhog/mailhog:v1.0.1
     container_name: beasiswa-mailhog
     restart: unless-stopped
-    # Tanpa ports: UI MailHog diakses lewat `docker compose port` atau exec, bukan
-    # dipublish ke host, agar aturan isolasi tetap konsisten.
-    ports:
-      - "8025:8025"
+    # Tanpa ports: UI MailHog tidak dipublish langsung dari service ini agar aturan
+    # isolasi (§6 aturan #9) tetap konsisten. Untuk melihat email di host (DEV SAJA),
+    # jalankan proxy socat sementara yang publish di network public dan
+    # connect ke internal (port loopback saja):
+    #   docker run -d --rm --name mailhog-ui --network beasiswa-public \
+    #     -p 127.0.0.1:8025:8025 alpine/socat tcp-listen:8025,fork,reuseaddr tcp:mailhog:8025
+    #   docker network connect beasiswa-internal mailhog-ui
+    #   # buka http://127.0.0.1:8025
+    # Catatan: publish dari network internal TIDAK bekerja — firewall network
+    # internal: true memblokir trafik dari host ke container.
     expose:
       - "1025"
       - "8025"
@@ -232,7 +249,9 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db-dokumen:5432/db_dokumen?schema=public
       STORAGE_PATH: /storage/permohonan
       MAX_FILE_SIZE_KB: 2048
-      CLAMAV_ENABLED: "true"
+      # Scan aktif default: database virus offline sudah tersedia di ./clamav-db.
+      # Scan gagal = upload ditolak (§6 aturan #12). Matikan via infra/.env bila perlu.
+      CLAMAV_ENABLED: ${CLAMAV_ENABLED:-true}
       CLAMAV_HOST: clamav
       CLAMAV_PORT: 3310
       SERVICE_TRANSAKSI_URL: http://service-transaksi:3003
@@ -246,6 +265,8 @@ services:
       - internal
     depends_on:
       db-dokumen:
+        condition: service_healthy
+      clamav:
         condition: service_healthy
 
   # ============================================================
@@ -276,7 +297,8 @@ services:
     expose:
       - "8080"
     volumes:
-      # HANYA public key. Gateway tidak pernah memegang private key (ADR-005).
+      # Gateway hanya memegang PUBLIC key (ADR-005). Tanpa mount ini env var
+      # JWT_PUBLIC_KEY_PATH menunjuk ke file yang tidak ada di dalam container.
       - ${JWT_PUBLIC_KEY_HOST:?JWT_PUBLIC_KEY_HOST wajib diisi}:/run/secrets/public.pem:ro
     networks:
       - public
@@ -300,6 +322,10 @@ services:
       dockerfile: Dockerfile
     container_name: beasiswa-frontend
     restart: unless-stopped
+    # Container nginx frontend berjalan unprivileged sehingga listen di 8080,
+    # bukan 80 — sesuaikan sisi container-nya.
+    ports:
+      - "${FRONTEND_PORT:-5173}:8080"
     expose:
       - "8080"
     networks:
@@ -353,3 +379,5 @@ volumes:
     name: beasiswa-db-dokumen-data
   dokumen-storage:
     name: beasiswa-dokumen-storage
+  clamav-db:
+    name: beasiswa-clamav-db

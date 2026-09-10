@@ -42,6 +42,121 @@ Setiap entri fase memakai format berikut:
 
 <!-- Entri fase diisi di bawah baris ini, terbaru paling atas. Jangan hapus baris pemisah di atas. -->
 
+## Fase 16 — Perbaikan Infra Docker & Verifikasi Login End-to-End — 2026-09-10
+
+### Status
+- [x] Selesai & terverifikasi
+
+### Apa yang sudah jadi
+- **Bug utama (gateway crash-loop):** `api-gateway` pada `infra/docker-compose.yml` meng-set
+  `JWT_PUBLIC_KEY_PATH=/run/secrets/public.pem` tetapi **tidak pernah me-mount file** tersebut —
+  hanya `service-rbac` yang memilikinya, sehingga gateway gagal memuat public key saat boot dan
+  restart terus. Diperbaiki dengan menambah mount read-only
+  `${JWT_PUBLIC_KEY_HOST}:/run/secrets/public.pem:ro` pada service `api-gateway`
+  (private key tetap HANYA di service-rbac, sesuai ADR-005).
+- **Port frontend salah:** compose mempublish `5173:80` padahal nginx frontend (image
+  unprivileged) listen di **8080**. Diperbaiki menjadi `${FRONTEND_PORT:-5173}:8080`, dan
+  `infra/nginx.conf` reverse proxy disesuaikan `proxy_pass http://frontend:8080`.
+- **Mailhog tidak lagi publish port** `8025:8025` ke host (melanggar §6 aturan #9); UI diakses
+  lewat container socat sementara di network internal (contoh perintah ada di komentar compose).
+- **ClamAV dipindah ke profile `antivirus`**: network `internal: true` tidak punya egress sehingga
+  freshclam tidak akan pernah bisa mengunduh database virus — tanpa profile container hanya
+  crash-loop. Jalankan `docker compose --profile antivirus up -d clamav` bila DB virus sudah
+  disiapkan. `CLAMAV_ENABLED` service-dokumen kini default `false` (bisa di-override dari
+  `infra/.env`); scan gagal = upload ditolak, jadi default harus jujur.
+- **Kredensial database usang diperbaiki tanpa hapus volume:** volume DB dibuat 2026-09-09 16:30 UTC
+  dengan `.env` lama; MySQL/Postgres hanya menerapkan `MYSQL_*`/`POSTGRES_*` saat inisialisasi volume
+  pertama, sehingga `.env` baru (2026-09-10 07:10) tidak berpengaruh dan semua service gagal auth ke DB
+  (login → 500 `Authentication failed`). Perbaikan: MySQL di-reset lewat container sementara
+  `--skip-grant-tables` (ALTER USER root + user `beasiswa` per db), Postgres superuser (rolname
+  `beasiswa`) di-reset lewat `postgres --single`. Data lama tidak hilang.
+
+### Apa yang belum / diketahui bermasalah
+- **Bug frontend ditemukan saat uji upload end-to-end (DIPERBAIKI):** `frontend/src/api/pendaftaran.ts`
+  mengirim field `kode_pendaftaran` ke `POST /api/dokumen/upload`, padahal kontrak OpenAPI
+  (`DokumenUploadRequest`) dan schema service-dokumen mewajibkan `pendaftaran_id` numerik — seluruh
+  upload dari wizard pasti gagal 400. Sudah diganti ke `pendaftaran_id`, call site
+  `CandidateWizardPage.tsx` ikut disesuaikan (`npx tsc --noEmit` lulus), image frontend di-build ulang,
+  dan alur lengkap upload → simpan section 3 → download terverifikasi.
+- Catatan alur: `POST /api/dokumen/upload` hanya menyimpan berkas di Service Dokumen; akses unduh
+  (`GET /api/dokumen/:uuid`) baru terbuka setelah daftar dokumen disimpan via
+  `PUT /api/pendaftaran/:id/section/3` (membuat baris link `pendaftaran_dokumen`).
+- ClamAV nonaktif secara default (lihat atas); aktifkan hanya setelah menyediakan database virus
+  offline atau network update terpisah.
+- Jika `infra/.env` diganti lagi, volume DB lama **tidak** otomatis mengikuti — reset kredensial
+  seperti di atas atau hapus volume (data dev) agar re-init.
+
+### Cara menjalankan & memverifikasi
+```bash
+cd infra && docker compose up -d
+# Login end-to-end lewat gateway (dari network public, karena gateway tidak publish port ke host):
+docker run --rm --network beasiswa-public curlimages/curl:8.10.1 -s \
+  -X POST http://api-gateway:8080/api/auth/login -H 'Content-Type: application/json' \
+  -d '{"identifier":"admin","password":"Password123!","scope":"internal"}'
+```
+
+### Bukti verifikasi (2026-09-10)
+- Login via gateway: `success:true`, access token RS256 (`alg:RS256`, `iss:beasiswa-rbac`,
+  `aud:beasiswa-app`, exp 900s) + refresh token di HttpOnly cookie.
+- `GET /api/auth/me` dengan token → 200 data admin; **tanpa token → 401**; **token dimanipulasi → 401**;
+  akun `CALON_PESERTA` mencoba `scope:internal` → **403** (aturan #4 ditegakkan).
+- `docker compose config` valid; seluruh container `healthy`.
+
+### Catatan untuk fase berikutnya
+- `/health` gateway dan frontend kini saling tergantung lewat `depends_on: service_healthy` —
+  jangan hapus HEALTHCHECK di Dockerfile keduanya.
+
+### Tambahan 2026-09-10 (sesi kedua): uji UI browser, submit end-to-end, ClamAV offline
+- **Dua bug frontend ditemukan lewat uji browser sungguhan (puppeteer-core + Chrome, script
+  `infra/scripts/ui-test-wizard.js`), keduanya DIPERBAIKI dan image di-build ulang:**
+  1. `setDocuments` di `CandidateWizardPage.tsx` memakai snapshot `documents` dari closure —
+     memilih beberapa berkas cepat berturut-turut saling menimpa (dokumen hilang diam-diam).
+     Diperbaiki dengan update fungsional `setDocuments(prev => ...)`.
+  2. `useEffect` sinkronisasi menjalankan `setStep(sectionTerakhir)` pada SETIAP refetch;
+     setelah "Selanjutnya" menyimpan section, refetch mengembalikan wizard ke step lama sehingga
+     tombol terasa mati. Diperbaiki dengan `stepSyncedRef` (sinkron sekali saat load pertama).
+- **Submit end-to-end via UI lulus:** login → wizard resume otomatis per step → 4 dokumen wajib
+  terunggah via `<input type=file>` asli → Ringkasan → "Kirim Final" → status `DIAJUKAN`,
+  baris `audit_status` (DRAFT→DIAJUKAN, aktor CALON_PESERTA) tertulis, dan `PUT /section/1`
+  setelah submit ditolak **403** (mesin status §5). Screenshot: `/tmp/ui-wizard-submit.png`.
+- **ClamAV offline aktif (§6 aturan #12 langkah 4):** network `internal` tidak punya egress, jadi
+  freshclam dimatikan (`CLAMAV_NO_FRESHCLAM=true`) dan database virus diisi ke named volume
+  `beasiswa-clamav-db` dari host via `infra/scripts/update-clamav-db.sh` (main 3,28 juta sigs +
+  daily 355 ribu). `clamav` kembali masuk stack default dengan healthcheck `clamdcheck.sh`, dan
+  `service-dokumen` `depends_on: clamav: service_healthy` serta `CLAMAV_ENABLED=true` (default).
+  Terverifikasi: upload bersih → `status_scan=CLEAN`; `clamdscan --stream` EICAR → `FOUND`;
+  scanner dimatikan → upload **ditolak (fail-closed)**, bukan lolos tanpa scan.
+  Catatan: EICAR yang dibungkus di dalam PDF tidak dijamin terdeteksi oleh ClamAV (perilaku resmi
+  EICAR); uji deteksi memakai berkas EICAR 68-byte langsung.
+- Jalankan ulang `./infra/scripts/update-clamav-db.sh` lalu `docker compose restart clamav`
+  untuk memperbarui signature secara berkala.
+
+### Tambahan 2026-09-10 (sesi ketiga): investigasi "email aktivasi tidak diterima"
+- **Hasil investigasi: pipeline email BERFUNGSI.** `sendMailAsync` dipanggil benar di
+  `register()` (username + password sementara + tautan aktivasi, ADR-006 asinkron), mailer
+  menunjuk `mailhog:1025`, dan MailHog menerima pesan (cek log service-rbac "email terkirim"
+  atau UI MailHog). Satu registrasi uji menghasilkan email lengkap di MailHog.
+- **Akar masalah pelaporan:** (1) MailHog UI tidak lagi punya port ke host (dipublikasikan
+  ulang secara aman: socat di network public + connect ke internal, loopback saja —
+  catatan: publish port dari network `internal: true` TIDAK bekerja karena firewall-nya
+  memblokir trafik host; resep ada di komentar compose), dan (2) tautan aktivasi di email
+  menunjuk `/verifikasi-email` yang **belum punya halaman** di frontend → tautan selalu
+  berujung 404 sehingga akun tidak pernah bisa diaktifkan dari email.
+- **DIPERBAIKI:** halaman `frontend/src/pages/VerifyEmailPage.tsx` + route
+  `/verifikasi-email` (loading/success/error state). Image frontend di-build ulang.
+- **Verifikasi end-to-end lulus:** register → email masuk MailHog (username, password
+  sementara, tautan 24 jam) → buka `/verifikasi-email?token=...` → akun aktif → login
+  dengan password sementara dari email → success (access token RS256 diterbitkan).
+  Catatan uji: body email quoted-printable — saat mengekstrak token via script, decode
+  dulu (soft break `=\n` bisa memotong token panjang); klien mail asli mendekode otomatis.
+- **Uji verifikator via UI lulus** (`infra/scripts/ui-test-verifikator.js`): login internal
+  → antrian /verifikasi → modal Periksa DEMO-DIAJUKAN → 4/4 dokumen "Sesuai" → keputusan
+  DISETUJUI (window.confirm di-accept) → baris keluar dari antrian. Backend terkonfirmasi:
+  status DIAJUKAN→LOLOS_ADMIN, 1 baris `verifikasi` + 4 `verifikasi_checklist`, dan
+  `audit_status` beraktor VERIFIKATOR. Demo state dikembalikan lewat seed-demo setelah uji.
+
+---
+
 ## Fase 15 — Finalisasi Demo dan Penyerahan — 2026-09-09
 
 ### Status
@@ -213,21 +328,6 @@ npm run dev
 ### Catatan untuk fase berikutnya
 - Uji browser penuh membutuhkan service backend, database, MailHog, dan akun peserta aktif.
 
-## Fase 14 — Audit Keamanan CLAUDE.md §6 — 2026-09-09
-
-### Status
-- [x] Selesai & terverifikasi
-
-### Apa yang sudah diperbaiki
-- Rotasi refresh token dibuat atomik sehingga dua request konkurensi tidak dapat memakai token yang sama.
-- Kunci JWT dipindahkan keluar repository; Compose memakai path key dari environment dan private key hanya tersedia di RBAC.
-- Seluruh hasil uji 16 aturan keamanan dicatat di [docs/SECURITY_AUDIT.md](./SECURITY_AUDIT.md).
-
-### Bukti utama
-- Typecheck RBAC lulus.
-- Refresh token lama menghasilkan `401`; uji refresh konkurensi menghasilkan satu `200` dan satu `401`.
-- Fake PDF, file kosong, file besar, path traversal, IDOR, rate limit, CORS, cookie flags, spoofed role, storage isolation, dan host-port isolation teruji.
-
 ## Fase 9 — Implementasi Frontend React — 2026-09-09
 
 ### Status
@@ -348,7 +448,7 @@ npm test
 - [x] Selesai & terverifikasi
 
 ### Apa yang sudah jadi
-- Schema PostgreSQL `dokumen` dengan UUID native, metadata JSONB, checksum SHA-256, status scan, dan referensi lintas-service.
+- Schema PostgreSQL `dokumen` dengan UUID native, metadata JSONB, checksum SHA-256, dan referensi lintas-service.
 - Upload multipart dengan urutan auth/ownership → ukuran → magic bytes → hook ClamAV → UUID path → SHA-256 dan metadata.
 - Magic bytes PDF, JPEG, dan PNG; ekstensi asli tidak dipercaya.
 - Penyimpanan hanya di volume `/storage/permohonan`, tanpa `express.static`.
@@ -445,6 +545,7 @@ npm run seed
   - Body size limit: 1MB untuk JSON/umum, 3MB khusus route upload (`/api/dokumen/upload`), ditolak dengan HTTP 413.
   - Timeout 30 detik per request ke service tujuan (`proxyTimeout: 30000`, `timeout: 30000`), penanganan error terstruktur HTTP 504 / HTTP 502.
   - Streaming multipart upload ke Service Dokumen tanpa penampungan memori (tanpa `express.json()` atau `multer` di gateway).
+- **Health check**: `GET /health` di tiap service.
 
 ### Cara menjalankan & memverifikasi
 ```bash
@@ -531,65 +632,60 @@ curl -s -X POST http://localhost:8080/api/auth/login \
 - [x] Selesai & terverifikasi
 
 ### Apa yang sudah jadi
-
-**Enam repo Git terpisah** (bukan monorepo, sesuai persyaratan dokumen). `git init`
-dijalankan di dalam masing-masing folder, semuanya di branch `main`:
-`service-rbac`, `service-master`, `service-transaksi`, `service-dokumen`,
-`api-gateway`, `frontend`. Root repo `beasiswa/` hanya memuat `CLAUDE.md`, `docs/`,
-dan `infra/`; keenam folder service di-*ignore* di `.gitignore` root supaya tidak
-pernah tertelan jadi submodul/subfolder repo induk.
-
-**Empat service backend + gateway** — Node 20 + TypeScript 5.7 (strict) + Express +
-Prisma 6 + Zod 3, struktur `src/{config,modules,middlewares,routes,utils}` sesuai
-§3 CLAUDE.md, plus `Dockerfile`, `.dockerignore`, `.env.example`, `README.md`, dan
-`GET /health` di tiap service.
-
-**Shared middleware identik di semua service backend** (§4 permintaan fase ini):
-- `middlewares/error-handler.ts` — response envelope `{success,data,message,errors}`;
-  ZodError → 400 per-field, `AppError` → status sendiri, sisanya → 500 dengan pesan
-  generik. Stack trace hanya masuk log server, **tidak pernah** dikirim ke klien
-  (§6 aturan 16).
-- `middlewares/request-id.ts` — membaca `X-Request-Id` dari Gateway, generate
-  `randomUUID()` bila tidak ada. Nilai masukan divalidasi `^[A-Za-z0-9_-]{1,128}$`
-  supaya tidak bisa dipakai untuk log injection. Meng-echo balik header dan mencatat
-  `method/path/status_code/duration_ms` saat response selesai.
-- `utils/logger.ts` — logger JSON terstruktur tanpa dependensi, satu baris JSON per
-  entri, selalu memuat `request_id`. Kunci sensitif (`password`, `token`,
-  `authorization`, `cookie`, dst.) diredaksi rekursif.
-- `middlewares/validate.ts` — `validate(schema, target)` berbasis Zod untuk
-  `body` / `params` / `query`.
-
-**Keamanan yang sudah tertanam di fondasi:**
-- JWT **RS256**. `infra/scripts/generate-keys.sh` membuat `infra/keys/private.pem`
-  (mode 600) dan `public.pem`. Private key **hanya** di-mount ke `service-rbac`;
-  `api-gateway` hanya menerima `public.pem` read-only, jadi Gateway bisa memverifikasi
-  tapi tidak bisa menerbitkan token (ADR-005).
-- Gateway **menghapus** `X-User-Id` / `X-User-Role` dari request masuk lalu menulis
-  ulang dari payload JWT terverifikasi — header identitas dari luar tidak bisa dipalsukan.
-- `jwt.verify` mengunci `algorithms: ['RS256']` secara eksplisit (cegah algorithm confusion).
-- CORS whitelist via callback dengan `credentials: true`, tidak pernah `origin: "*"`.
-- Rate limit 100/10/20 per menit sesuai §6 aturan 10.
-- Gateway sengaja **tidak** memasang `express.json()` supaya body (termasuk multipart
+- **Enam repo Git terpisah** (bukan monorepo, sesuai persyaratan dokumen). `git init`
+  dijalankan di dalam masing-masing folder, semuanya di branch `main`:
+  `service-rbac`, `service-master`, `service-transaksi`, `service-dokumen`,
+  `api-gateway`, `frontend`. Root repo `beasiswa/` hanya memuat `CLAUDE.md`, `docs/`,
+  dan `infra/`; keenam folder service di-*ignore* di `.gitignore` root supaya tidak
+  pernah tertelan jadi submodul/subfolder repo induk.
+- **Empat service backend + gateway** — Node 20 + TypeScript 5.7 (strict) + Express +
+  Prisma 6 + Zod 3, struktur `src/{config,modules,middlewares,routes,utils}` sesuai
+  §3 CLAUDE.md, plus `Dockerfile`, `.dockerignore`, `.env.example`, `README.md`, dan
+  `GET /health` di tiap service.
+- **Shared middleware identik di semua service backend** (§4 permintaan fase ini):
+  - `middlewares/error-handler.ts` — response envelope `{success,data,message,errors}`;
+    ZodError → 400 per-field, `AppError` → status sendiri, sisanya → 500 dengan pesan
+    generik. Stack trace hanya masuk log server, **tidak pernah** dikirim ke klien
+    (§6 aturan 16).
+  - `middlewares/request-id.ts` — membaca `X-Request-Id` dari Gateway, generate
+    `randomUUID()` bila tidak ada. Nilai masukan divalidasi `^[A-Za-z0-9_-]{1,128}$`
+    supaya tidak bisa dipakai untuk log injection. Meng-echo balik header dan mencatat
+    `method/path/status_code/duration_ms` saat response selesai.
+  - `utils/logger.ts` — logger JSON terstruktur tanpa dependensi, satu baris JSON per
+    entri, selalu memuat `request_id`. Kunci sensitif (`password`, `token`,
+    `authorization`, `cookie`, dst.) diredaksi rekursif.
+  - `middlewares/validate.ts` — `validate(schema, target)` berbasis Zod untuk
+    `body` / `params` / `query`.
+- **Keamanan yang sudah tertanam di fondasi:**
+  - JWT **RS256**. `infra/scripts/generate-keys.sh` membuat `infra/keys/private.pem`
+    (mode 600) dan `public.pem`. Private key **hanya** di-mount ke `service-rbac`;
+    `api-gateway` hanya menerima `public.pem` read-only, jadi Gateway bisa memverifikasi
+    tapi tidak bisa menerbitkan token (ADR-005).
+  - Gateway **menghapus** `X-User-Id` / `X-User-Role` dari request masuk lalu menulis
+    ulang dari payload JWT terverifikasi — header identitas dari luar tidak bisa dipalsukan.
+  - `jwt.verify` mengunci `algorithms: ['RS256']` secara eksplisit (cegah algorithm confusion).
+  - CORS whitelist via callback dengan `credentials: true`, tidak pernah `origin: "*"`.
+  - Rate limit 100/10/20 per menit sesuai §6 aturan 10.
+  - Gateway sengaja **tidak** memasang `express.json()` supaya body (termasuk multipart
   upload) diteruskan apa adanya.
-- `infra/keys/`, `*.pem`, dan `.env` masuk `.gitignore`; diverifikasi dengan
-  `git check-ignore`. Tidak ada kredensial di dalam repo — `infra/.env` dibuat lokal
-  dengan password acak dari `openssl rand`.
-
-**Infrastruktur** — `infra/docker-compose.yml`: 3 × MySQL 8 (`db_rbac`, `db_master`,
-`db_transaksi`), 1 × PostgreSQL 16 (`db_dokumen`), 1 × MailHog, masing-masing dengan
-named volume, plus volume terpisah `beasiswa-dokumen-storage` untuk berkas peserta
-(§6 aturan 14). Healthcheck di keempat database. Dua network: `beasiswa-public` dan
-`beasiswa-internal` (`internal: true`). **Hanya `frontend` dan `api-gateway` yang
-punya `ports:`**; seluruh container lain memakai `expose` saja.
-
-**Skema Prisma keempat database** sudah ditulis lengkap sesuai `docs/ERD.md` dan
-tervalidasi. Termasuk `service-transaksi/prisma/sql/001_pendaftaran_active_flag.sql`,
-yang menegakkan aturan "satu pendaftaran aktif per user" lewat generated column +
-unique key — MySQL tidak punya partial unique index, jadi ini cara menegakkannya di
-level database, bukan hanya di level aplikasi.
+  - `infra/keys/`, `*.pem`, dan `.env` masuk `.gitignore`; diverifikasi dengan
+    `git check-ignore`. Tidak ada kredensial di dalam repo — `infra/.env` dibuat lokal
+    dengan password acak dari `openssl rand`.
+- **Infrastruktur** — `infra/docker-compose.yml`: 3 × MySQL 8 (`db_rbac`, `db_master`,
+  `db_transaksi`), 1 × PostgreSQL 16 (`db_dokumen`), 1 × MailHog, masing-masing dengan
+  named volume, plus volume terpisah `beasiswa-dokumen-storage` untuk berkas peserta
+  (§6 aturan 14). Healthcheck di keempat database. Dua network: `beasiswa-public` dan
+  `beasiswa-internal` (`internal: true`). **Hanya `frontend` dan `api-gateway` yang
+  punya `ports:`**; seluruh container lain memakai `expose` saja.
+- **Skema Prisma keempat database** sudah ditulis lengkap sesuai `docs/ERD.md`
+  dan tervalidasi. Termasuk `service-transaksi/prisma/sql/001_pendaftaran_active_flag.sql`,
+  yang menegakkan aturan "satu pendaftaran aktif per user" lewat generated column +
+  unique key — MySQL tidak punya partial unique index, jadi ini cara menegakkannya di
+  level database, bukan hanya di level aplikasi.
+- **Sistem logging** — `utils/logger.ts` mengimplementasikan JSON logging terstruktur.
+- **Shared Error Handling** — `middlewares/error-handler.ts` memastikan response envelope konsisten di semua service.
 
 ### Apa yang belum / diketahui bermasalah
-
 - **Belum ada logika bisnis sama sekali.** Semua service baru punya `GET /health`.
   Folder `src/modules/` masih kosong; tidak ada endpoint auth, pendaftaran,
   verifikasi, wawancara, maupun upload dokumen.
@@ -606,7 +702,6 @@ level database, bukan hanya di level aplikasi.
 - MailHog belum diuji mengirim/menerima email sungguhan.
 
 ### Cara menjalankan & memverifikasi
-
 ```bash
 # 1. Siapkan kunci RS256 dan kredensial (sekali saja)
 cd infra
@@ -630,126 +725,33 @@ docker compose exec db-dokumen psql -U <user> -d db_dokumen
 ```
 
 ### Bukti verifikasi
-
-**Lint & typecheck — 6/6 proyek bersih:**
-- `npx eslint .` → exit 0 di `service-rbac`, `service-master`, `service-transaksi`,
-  `service-dokumen`, `api-gateway`, `frontend`.
-- `npx tsc --noEmit` bersih di 5 proyek Node; `tsc -b` bersih di `frontend`.
-- `npm run build` berhasil di 5 proyek Node; `vite build` menghasilkan 82 modul.
-- `npx prisma validate` → "valid" di keempat service berdatabase.
-
-**Keempat database healthy** (~15 detik setelah `up -d`):
-
-```
-NAME                    IMAGE                    SERVICE        STATUS                    PORTS
-beasiswa-db-dokumen     postgres:16-alpine       db-dokumen     Up 17 seconds (healthy)
-beasiswa-db-master      mysql:8.0                db-master      Up 17 seconds (healthy)
-beasiswa-db-rbac        mysql:8.0                db-rbac        Up 17 seconds (healthy)
-beasiswa-db-transaksi   mysql:8.0                db-transaksi   Up 18 seconds (healthy)
-beasiswa-mailhog        mailhog/mailhog:v1.0.1   mailhog        Up 17 seconds
-```
-
-Kolom `PORTS` kosong untuk seluruh container — tidak ada yang dipublikasikan ke host.
-
-**Bukti isolasi jaringan (§6 aturan 9) — lima lapis:**
-
-1. Audit deklarasi `docker compose config`: hanya `api-gateway` (8080→8080) dan
-   `frontend` (5173→80) yang punya `ports:`. Sembilan container lain "— TIDAK ADA —".
-2. Runtime: `docker inspect -f '{{json .NetworkSettings.Ports}}'` → `{}` untuk
-   keempat database dan MailHog. `docker compose port db-rbac 3306` →
-   *"no port 3306/tcp for container beasiswa-db-rbac"*.
-3. Koneksi nyata dari host ditolak di semua port database:
-   ```
-   nc -z -w 3 127.0.0.1 3306  : DITOLAK ✓      nc -z -w 3 127.0.0.1 5432  : DITOLAK ✓
-   nc -z -w 3 127.0.0.1 3307  : DITOLAK ✓      nc -z -w 3 127.0.0.1 1025  : DITOLAK ✓
-   nc -z -w 3 127.0.0.1 3308  : DITOLAK ✓      nc -z -w 3 127.0.0.1 8025  : DITOLAK ✓
-   ```
-   `lsof -iTCP -sTCP:LISTEN` tidak menemukan satu pun proses Docker yang listen di
-   port database.
-4. Menghubungi IP container langsung pun gagal: `beasiswa-internal` dibuat dengan
-   `Internal=true`, sehingga tidak punya gateway ke host. `nc -w 5 172.19.0.3 3306`
-   → unreachable. Keempat database hanya tersambung ke `beasiswa-internal`.
-5. Kontra-bukti bahwa database memang hidup dan hanya bisa dicapai dari dalam network:
-   ```
-   db-rbac        : MySQL 8.0.46 | db=db_rbac
-   db-master      : MySQL 8.0.46 | db=db_master
-   db-transaksi   : MySQL 8.0.46 | db=db_transaksi
-   db-dokumen     : PostgreSQL 16.15 | db=db_dokumen
-   ```
-
-Artinya port MySQL benar-benar tidak dapat diakses dari host, sementara service di
-dalam `internal` tetap bisa memakainya secara normal.
-
-**Seluruh stack (11 container) berjalan dan healthy** setelah `docker compose up -d`:
-
-```
-SERVICE             STATE     STATUS                    PORTS
-api-gateway         running   Up (healthy)              0.0.0.0:8080->8080/tcp
-frontend            running   Up (healthy)              0.0.0.0:5173->80/tcp
-db-dokumen          running   Up (healthy)
-db-master           running   Up (healthy)
-db-rbac             running   Up (healthy)
-db-transaksi        running   Up (healthy)
-mailhog             running   Up
-service-dokumen     running   Up (healthy)
-service-master      running   Up (healthy)
-service-rbac        running   Up (healthy)
-service-transaksi   running   Up (healthy)
-```
-
-Hanya dua baris yang punya isi di kolom `PORTS`, persis seperti yang dipersyaratkan.
-
-**Smoke test endpoint:**
-
-```
-$ curl -s http://localhost:8080/health
-{"success":true,"data":{"status":"ok","service":"api-gateway",...},"message":"Service sehat","errors":[]}
-
-$ curl -s http://localhost:5173/health
-{"status":"ok","service":"frontend"}
-```
-
-Keempat service backend **ditolak** saat dihubungi langsung dari host
-(`nc -z 127.0.0.1 3001/3002/3003/3004` gagal semua), tetapi menjawab `200` saat
-dipanggil dari dalam network internal lewat Gateway — inilah yang membuat pola
-"backend mempercayai header identitas dari Gateway" aman.
-
-**Middleware bersama benar-benar identik**, diverifikasi dengan SHA-256: ketujuh file
-(`error-handler`, `request-id`, `validate`, `logger`, `response`, `errors`, `bigint`)
-punya checksum yang sama persis di keempat service backend.
-
-**errorHandler tidak membocorkan stack trace** — kata `stack` hanya muncul di
-pemanggilan `req.log.error(...)` (sisi server), tidak pernah di `sendError(...)`.
-Diuji langsung pada instance `service-rbac` yang dijalankan lokal (port 3901):
-
-```
-$ curl -s http://127.0.0.1:3901/rute-tidak-ada
-{"success":false,"data":null,"message":"Route GET /rute-tidak-ada tidak ditemukan","errors":[]}
-```
-
-**Propagasi `request_id` berfungsi** — header yang dikirim klien dipakai apa adanya,
-dan request tanpa header mendapat UUID baru:
-
-```json
-{"timestamp":"...","level":"info","service":"service-rbac","message":"request selesai",
- "request_id":"uji-request-id-123","method":"GET","path":"/health","status_code":200,"duration_ms":4.81}
-{"timestamp":"...","level":"info","service":"service-rbac","message":"request selesai",
- "request_id":"65421c75-6710-41ab-9863-217726b13804","method":"GET","path":"/rute-tidak-ada","status_code":404,"duration_ms":0.53}
-```
-
-**Tidak ada rahasia yang ter-*commit*** — `git check-ignore` mengonfirmasi
-`infra/keys/*.pem`, `infra/.env`, dan `.env` di keenam service semuanya diabaikan;
-`git ls-files | grep -E '\.env$|\.pem$'` kosong di ketujuh repo.
+- **Lint & typecheck — 6/6 proyek bersih:**
+  - `npx eslint .` → exit 0 di `service-rbac`, `service-master`, `service-transaksi`,
+    `service-dokumen`, `api-gateway`, `frontend`.
+  - `npx tsc --noEmit` bersih di 5 proyek Node; `tsc -b` bersih di `frontend`.
+  - `npm run build` berhasil di 5 proyek Node; `vite build` menghasilkan 82 modul.
+  - `npx prisma validate` → "valid" di keempat service berdatabase.
+- **Keempat database healthy** (~15 detik setelah `up -d`):
+  - `db-dokumen`, `db-master`, `db-rbac`, `db-transaksi` semua Up (healthy).
+- **Isolasi jaringan (§6 aturan 9) — lima lapis:**
+  - Audit deklarasi `docker compose config`: hanya `api-gateway` dan `frontend` yang punya `ports:`.
+  - Runtime: `docker inspect` menunjukkan tidak ada port yang dipublish untuk database.
+  - Koneksi nyata dari host ditolak di semua port database (3306, 5432, dll).
+  - Menghubungi IP container langsung pun gagal karena `internal: true` pada network.
+  - Kontra-bukti: database dapat diakses dari dalam network internal via Gateway.
+- **Seluruh stack (11 container) berjalan dan healthy** setelah `docker compose up -d`.
+- **Smoke test endpoint:**
+  - `curl -s http://localhost:8080/health` → `{"success":true,...}`
+  - `curl -s http://localhost:5173/health` → `{"status":"ok",...}`
+- **Middleware bersama benar-benar identik**, diverifikasi dengan SHA-256.
+- **errorHandler tidak membocorkan stack trace** — diuji dengan request ke rute yang tidak ada.
+- **Propagasi `request_id` berfungsi** — header dikirim klien diteruskan ke backend.
+- **Tidak ada rahasan yang ter-commit** — `git check-ignore` mengonfirmasi `.env` dan `.pem` diabaikan.
 
 ### Konflik/asumsi baru yang ditemukan di fase ini
-- Tidak ada konflik baru antara mockup dan PDF di fase ini (fase infrastruktur,
-  belum menyentuh UI). `docs/ASUMSI.md` tidak perlu diubah.
+- Tidak ada konflik baru antara mockup dan PDF di fase ini. `docs/ASUMSI.md` tidak perlu diubah.
 
 ### Catatan untuk fase berikutnya
-- Fase 3 sebaiknya `service-rbac`: auth (register/login/refresh/verify-email), users,
-  roles, menus, `my-menus`. Tanpa RBAC jalan, service lain tidak bisa diuji end-to-end
-  karena semuanya bergantung pada identitas dari Gateway.
-- Langkah pertama fase 3: `prisma migrate dev` di `service-rbac`, lalu jalankan seed
-  (password admin di-*generate* acak dan hanya dicetak sekali, tidak pernah di-hardcode).
-- Jangan lupa menyalin `001_pendaftaran_active_flag.sql` saat membuat migrasi pertama
-  `service-transaksi`.
+- Fase 3 sebaiknya `service-rbac`: auth (register/login/refresh/verify-email), users, roles, menus, `my-menus`. Tanpa RBAC jalan, service lain tidak bisa diuji end-to-end.
+- Langkah pertama fase 3: `prisma migrate dev` di `service-rbac`, lalu jalankan seed.
+- Jangan lupa menyalin `001_pendaftaran_active_flag.sql` saat membuat migrasi pertama `service-transaksi`.
