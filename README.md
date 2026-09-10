@@ -114,13 +114,13 @@ Karena mengikuti standar microservices, setiap layanan memiliki repositori Git s
 
 | Komponen | Tanggung Jawab | Link Repositori |
 | :--- | :--- | :--- |
-| **Root (Repo ini)** | Orkestrasi, Infrastruktur, & Dokumentasi | `[Link Repo Root]` |
-| **Service RBAC** | Auth (JWT RS256), Manajemen User & Role | `[Link Repo RBAC]` |
-| **Service Master** | Manajemen Data Beasiswa & Persyaratan | `[Link Repo Master]` |
-| **Service Transaksi** | Alur Pendaftaran, Verifikasi & Wawancara | `[Link Repo Transaksi]` |
-| **Service Dokumen** | Penyimpanan File & Scan Antivirus (ClamAV) | `[Link Repo Dokumen]` |
-| **API Gateway** | Routing, Rate Limiting & SSL Termination | `[Link Repo Gateway]` |
-| **Frontend** | User Interface (React 18 + Bootstrap 5.3) | `[Link Repo Frontend]` |
+| **Root (Repo ini)** | Orkestrasi, Infrastruktur, & Dokumentasi | `https://github.com/GhifariAlwy/Aplikasi_beasiswa.git` |
+| **Service RBAC** | Auth (JWT RS256), Manajemen User & Role | `https://github.com/GhifariAlwy/service-rbac.git` |
+| **Service Master** | Manajemen Data Beasiswa & Persyaratan | `https://github.com/GhifariAlwy/service-master.git` |
+| **Service Transaksi** | Alur Pendaftaran, Verifikasi & Wawancara | `https://github.com/GhifariAlwy/service-transaksi.git` |
+| **Service Dokumen** | Penyimpanan File & Scan Antivirus (ClamAV) | `https://github.com/GhifariAlwy/service-dokumen.git` |
+| **API Gateway** | Routing, Rate Limiting & SSL Termination | `https://github.com/GhifariAlwy/api-gateway.git` |
+| **Frontend** | User Interface (React 18 + Bootstrap 5.3) | `https://github.com/GhifariAlwy/frontend.git` |
 
 ---
 
@@ -134,16 +134,16 @@ Karena mengikuti standar microservices, setiap layanan memiliki repositori Git s
 1. **Clone Root Repository & Services**
 ```bash
    # Clone repo utama
-   git clone [LINK_REPO_ROOT] beasiswa
+   git clone https://github.com/GhifariAlwy/Aplikasi_beasiswa.git
    cd beasiswa
 
    # Clone semua service ke folder masing-masing
-   git clone [LINK_REPO_RBAC] service-rbac
-   git clone [LINK_REPO_MASTER] service-master
-   git clone [LINK_REPO_TRANSAKSI] service-transaksi
-   git clone [LINK_REPO_DOKUMEN] service-dokumen
-   git clone [LINK_REPO_GATEWAY] api-gateway
-   git clone [LINK_REPO_FRONTEND] frontend
+   git clone https://github.com/GhifariAlwy/service-rbac.git
+   git clone https://github.com/GhifariAlwy/service-master.git
+   git clone https://github.com/GhifariAlwy/service-transaksi.git
+   git clone https://github.com/GhifariAlwy/service-dokumen.git
+   git clone https://github.com/GhifariAlwy/api-gateway.git
+   git clone https://github.com/GhifariAlwy/frontend.git
 ```
 
 2. **Konfigurasi Environment**
